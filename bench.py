@@ -1,23 +1,48 @@
 """Accuracy benchmark for the transcriber against the known 'Midnight Kampala' arrangement.
 
-The reference audio is not committed (see .gitignore) -- it is regenerated with
-    python3 beat/make_beat.py
-Set BEATFORGE_REF to point at the directory holding beat.wav and stems/ if it lives
-somewhere other than the repo root. With no reference audio present the benchmark
-prints instructions and exits 0, so CI stays green on a fresh clone.
+The reference audio is large and is not committed to this repo, so on a fresh clone
+the benchmark prints what it is missing and exits 0 -- CI stays green, and the engine
+itself is still exercised by tests/server-engine.py against the committed demo audio.
+
+Point BEATFORGE_REF at the directory holding beat.wav and stems/ to run it for real:
+    BEATFORGE_REF=/path/to/beat python3 bench.py
+Without that variable it looks in the repo root, then in <repo>/beat/.
 """
 import os
-import numpy as np, wave, sys
-from scipy.signal import resample_poly
+import sys
+import wave
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+try:
+    import numpy as np
+    from scipy.signal import resample_poly
+except ImportError as e:                                   # pragma: no cover
+    print("\n  SKIPPED: transcription benchmark needs numpy + scipy.")
+    print(f"    missing: {e.name}")
+    print("\n  Install them with:")
+    print("    pip install -r requirements.txt")
+    sys.exit(0)
+
+sys.path.insert(0, HERE)
 from server import transcribe
-
-REF = os.environ.get("BEATFORGE_REF", os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__)))))
 
 REQUIRED = ["beat.wav", "stems/melody.wav", "stems/808.wav",
             "stems/kick.wav", "stems/clap.wav", "stems/hat.wav"]
+
+
+def find_ref():
+    """Where to look for the reference audio: $BEATFORGE_REF, else the repo root, else <repo>/beat."""
+    env = os.environ.get("BEATFORGE_REF")
+    if env:
+        return env
+    for cand in (HERE, os.path.join(HERE, "beat")):
+        if not [f for f in REQUIRED if not os.path.isfile(os.path.join(cand, f))]:
+            return cand
+    return HERE
+
+
+REF = find_ref()
 
 
 def reference_audio_present():
@@ -29,10 +54,10 @@ def skip(reason):
     print("\n  SKIPPED: transcription benchmark needs reference audio.")
     for m in reason:
         print(f"    missing: {os.path.join(REF, m)}")
-    print("\n  Generate it with:")
-    print("    python3 beat/make_beat.py          # ~3.5 min, writes beat.wav + stems/")
-    print("  or point at existing audio:")
-    print("    BEATFORGE_REF=/path/to/audio python3 bench.py")
+    print("\n  The 'Midnight Kampala' beat generator is not part of this repo.")
+    print("  Point at a directory holding beat.wav + stems/ to run the benchmark:")
+    print("    BEATFORGE_REF=/path/to/beat python3 bench.py")
+    print("\n  (The Python engine itself is covered by tests/server-engine.py, which ran above.)")
     sys.exit(0)
 
 SR=22050; BPM=140.0; SPB=60/BPM; Q=0.25*SPB

@@ -330,10 +330,10 @@
           <span class="kbd">Alt</span>+click accent ·
           right-click erase</p>
       </details>
-      <p class="note" style="margin-top:14px">Files this pairs with: the <b>beat.wav</b>,
-        <b>midi/*.mid</b> and <b>stems/</b> from the code-generated “Midnight Kampala” beat — load
-        <b>stems/melody.wav</b> or <b>stems/808.wav</b> into the transcriber and it will hand the
-        parts back to you as MIDI you can edit.</p>
+      <p class="note" style="margin-top:14px">Try it on the bundled demos (links above the drop zone):
+        <b>demo/drums.wav</b>, <b>demo/melody.wav</b>, <b>demo/bass.wav</b> and <b>demo/full-beat.wav</b>,
+        all cut from the same 140 BPM beat. The isolated melody and 808 stems transcribe cleanest —
+        that's the general rule: feed the transcriber stems, not full mixes.</p>
     </div>
   </section>
 
@@ -1454,7 +1454,7 @@ async function transcribeFile(file){
       sensitivity: String(opts.sensitivity), quantize: String(opts.quantize), grid: String(opts.grid),
     });
     try {
-      const r = await fetch("/api/audio2midi?" + q.toString(), {
+      const r = await fetch("api/audio2midi?" + q.toString(), {
         method: "POST", headers: { "Content-Type": "application/octet-stream" },
         body: prep.samples.buffer,
       });
@@ -1658,25 +1658,39 @@ async function loadFile(file){
   decoded = null;
   await transcribeFile(file);
 }
-/* demo buttons: rendered only when the server has demo audio */
+/* demo buttons: shown whenever the demo audio is reachable -- from server.py or from a
+   plain static host (GitHub Pages), where demo/ is published alongside the page.
+   URLs are relative so they also work when the app is hosted under a sub-path. */
 async function wireDemos(){
+  const demos = [["demo/drums.wav", "drum loop"], ["demo/melody.wav", "melody"],
+                 ["demo/bass.wav", "808 bass"], ["demo/full-beat.wav", "full beat"]];
   try {
-    const r = await fetch("/api/health");
-    if (!r.ok) return;
-    const demos = [["demo/drums.wav", "drum loop"], ["demo/melody.wav", "melody"],
-                   ["demo/bass.wav", "808 bass"], ["demo/full-beat.wav", "full beat"]];
+    const ctl = new AbortController();
+    let probe;
+    try { probe = await fetch(demos[0][0], { signal: ctl.signal }); }
+    finally { ctl.abort(); }                       // only the status was needed
+    const ctype = (probe.headers.get("content-type") || "").toLowerCase();
+    if (!probe.ok || !(ctype.includes("audio") || ctype.includes("octet-stream") || !ctype)) return;
     $("#demoRow").innerHTML = demos.map(([p, label]) =>
       `<a href="#" data-demo="${p}">${label}</a>`).join(" · ");
     $$("#demoRow a").forEach(a => a.onclick = async e => {
       e.preventDefault();
       $("#status").textContent = "Fetching " + a.dataset.demo + "…";
-      const resp = await fetch("/" + a.dataset.demo);
-      if (!resp.ok){ $("#status").textContent = "Demo file not on the server."; return; }
-      const blob = await resp.blob();
-      decoded = null;
-      await transcribeFile(new File([blob], a.dataset.demo));
+      try {
+        const resp = await fetch(a.dataset.demo);
+        if (!resp.ok){ $("#status").textContent = "Demo file not on the server."; return; }
+        const blob = await resp.blob();
+        decoded = null;
+        await transcribeFile(new File([blob], a.dataset.demo));
+      } catch (err){
+        $("#status").textContent = "Could not load the demo audio.";
+        $("#a2mWarn").classList.remove("hidden");
+        $("#a2mWarn").textContent = "Demo audio could not be fetched (" + err.message + "). " +
+          "Browsers block fetch() for pages opened straight off disk -- drop a file in instead, " +
+          "or serve the folder (python3 server.py).";
+      }
     });
-  } catch (e){ /* no server: fine, uploads still work in the hosted version */ }
+  } catch (e){ /* no demo audio here: uploads still work */ }
 }
 
 /* ======================================================================

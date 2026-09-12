@@ -1,0 +1,53 @@
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  full:
+    name: Full suite (Node + DOM + Python engine)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dev dependencies (jsdom, for the DOM test)
+        run: npm ci
+
+      - name: Install Python engine deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # extract-app.py -> build/app.js, node --check, local-engine.js in-sync check,
+      # the five .cjs suites, tests/dom.cjs (real page in jsdom, real HTTP),
+      # tests/server-engine.py (transcription + MIDI + HTTP), then bench.py.
+      # bench.py exits 0 with a SKIP notice because the reference audio isn't committed.
+      - name: Run the suite
+        run: sh tests/run-all.sh
+
+  bare:
+    name: Bare clone (no jsdom, no numpy) - skips must stay clean
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run the suite
+        run: sh tests/run-all.sh

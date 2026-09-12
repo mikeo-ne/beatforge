@@ -1,7 +1,7 @@
 require("./shim.cjs");
 const fs = require("fs");
 const m = new module.constructor();
-m._compile(fs.readFileSync("../build/app.js","utf8") + "\n;module.exports={GENRES,loadPreset,state,TRACK_DEFS};", "/tmp/p.js");
+m._compile(fs.readFileSync(require("path").join(__dirname, "..", "build", "app.js"),"utf8") + "\n;module.exports={GENRES,loadPreset,state,TRACK_DEFS};", "/tmp/p.js");
 const api = m.exports;
 const stepsOf = (k, lane) => {
   api.loadPreset(k);
