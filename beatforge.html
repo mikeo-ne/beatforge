@@ -1,0 +1,2362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BEATFORGE — MIDI maker &amp; audio-to-MIDI</title>
+<style>
+  :root{
+    --bg:#08090e; --panel:#101320; --panel2:#151a2b; --line:#232a42;
+    --txt:#e8ecf8; --dim:#8b93ad; --accent:#4ce0b3; --accent2:#7a6cff;
+    --warm:#ff8a5b; --hot:#ff4d6d; --grid:#1a2036;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+    font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  a{color:var(--accent)}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 18px 80px}
+  header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  .logo{display:flex;align-items:center;gap:11px;font-weight:800;letter-spacing:.14em;font-size:19px}
+  .logo .mark{width:30px;height:30px;border-radius:8px;background:
+    linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 22px rgba(76,224,179,.35)}
+  .tag{color:var(--dim);font-size:12.5px;letter-spacing:.02em}
+  .tabs{display:flex;gap:6px;margin:18px 0 14px;border-bottom:1px solid var(--line)}
+  .tab{padding:10px 16px;border:1px solid transparent;border-bottom:none;border-radius:9px 9px 0 0;
+    cursor:pointer;color:var(--dim);font-weight:650;font-size:13.5px;background:none}
+  .tab.on{color:var(--txt);background:var(--panel);border-color:var(--line);
+    box-shadow:inset 0 -2px 0 var(--accent)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px}
+  .panel + .panel{margin-top:14px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);margin:0 0 12px}
+  h3{font-size:14px;margin:0 0 8px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .grow{flex:1}
+  button,.btn{font:inherit;font-weight:650;font-size:13px;color:var(--txt);background:var(--panel2);
+    border:1px solid var(--line);border-radius:9px;padding:8px 13px;cursor:pointer}
+  button:hover,.btn:hover{border-color:#39456b}
+  button.primary{background:linear-gradient(135deg,var(--accent),#2fae8b);color:#04120d;border:none;
+    box-shadow:0 6px 18px rgba(76,224,179,.22)}
+  button.ghost{background:transparent}
+  button.sm{padding:5px 9px;font-size:12px}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  label.fld{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--dim);
+    text-transform:uppercase;letter-spacing:.08em}
+  input[type=number],input[type=text],select{font:inherit;background:#0b0e18;color:var(--txt);
+    border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .transport{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:10px;align-items:end}
+  .play{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-size:18px;
+    background:linear-gradient(135deg,var(--accent),#2fae8b);color:#04120d;border:none;cursor:pointer}
+  .play.on{background:linear-gradient(135deg,var(--hot),#c72f4c);color:#fff}
+  /* ---------- sequencer ---------- */
+  .tracks{margin-top:14px;overflow-x:auto;padding-bottom:4px}
+  .trk{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;
+    padding:5px 0;border-bottom:1px solid #161c2e}
+  .trk.sel{background:linear-gradient(90deg,rgba(122,108,255,.10),transparent)}
+  .tinfo{display:flex;align-items:center;gap:7px}
+  .dot{width:9px;height:9px;border-radius:3px;flex:none}
+  .tname{font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    cursor:pointer;flex:1}
+  .ico{width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:#0d1120;
+    color:var(--dim);font-size:11px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
+  .ico.m{color:var(--hot);border-color:#4a2434}
+  .bars{display:flex;gap:9px;flex-wrap:nowrap}
+  .bar{display:grid;gap:3px;padding:4px;border-radius:8px;background:#0c1020;border:1px solid #171d30}
+  .bar .bnum{font-size:9px;color:#5b6484;padding-left:2px}
+  .steps{display:grid;gap:3px}
+  .cell{width:100%;aspect-ratio:1/1;min-width:15px;border-radius:5px;background:var(--grid);
+    border:1px solid #1d2440;cursor:pointer;position:relative;display:grid;place-items:center;
+    font-size:8.5px;color:#cfd7ee;user-select:none;padding:0}
+  .cell.beat{background:#212a48}
+  .cell:hover{border-color:#4a5680}
+  .cell.on{border-color:transparent}
+  .cell.cur{box-shadow:inset 0 0 0 2px rgba(255,255,255,.55)}
+  .cell span{pointer-events:none;font-weight:700;line-height:1}
+  /* ---------- audio2midi ---------- */
+  .drop{border:1.5px dashed #33405f;border-radius:12px;padding:26px;text-align:center;
+    background:#0b0f1c;cursor:pointer;transition:.15s}
+  .drop.hot{border-color:var(--accent);background:#0c1622}
+  .drop b{color:var(--accent)}
+  .meter{height:7px;background:#141a2c;border-radius:99px;overflow:hidden;margin-top:10px}
+  .meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent2),var(--accent));
+    transition:width .25s}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:9px;margin:12px 0}
+  .stat{background:#0c1020;border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+  .stat b{display:block;font-size:17px}
+  .stat span{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em}
+  canvas{width:100%;background:#0a0e1a;border:1px solid var(--line);border-radius:11px;display:block}
+  .pill{display:inline-block;font-size:11px;padding:3px 9px;border-radius:99px;background:#141a2c;
+    border:1px solid var(--line);color:var(--dim);margin:0 5px 5px 0}
+  .pill.g{color:var(--accent);border-color:#1f4f42}
+  .note{font-size:12px;color:var(--dim)}
+  .warn{background:#1d1320;border:1px solid #4a2338;color:#ffc7d5;border-radius:10px;
+    padding:10px 12px;font-size:12.5px;margin-top:10px}
+  details summary{cursor:pointer;color:var(--dim);font-size:12.5px}
+  .kbd{font:11px ui-monospace,Menlo,Consolas,monospace;background:#141a2c;border:1px solid var(--line);
+    border-radius:5px;padding:1px 5px;color:#c9d1e8}
+  .gfamily{margin-bottom:10px}
+  .gfamily .flabel{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;
+    margin:0 0 5px 2px}
+  .gbtns{display:flex;flex-wrap:wrap;gap:6px}
+  .gbtn{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:7px 11px;
+    border-radius:9px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;color:var(--txt)}
+  .gbtn:hover{border-color:#39456b}
+  .gbtn.on{border-color:var(--accent);background:linear-gradient(135deg,rgba(76,224,179,.16),rgba(122,108,255,.10));
+    box-shadow:0 0 0 1px rgba(76,224,179,.35) inset}
+  .gbtn b{font-size:12.5px;font-weight:700}
+  .gbtn i{font-style:normal;font-size:10px;color:var(--dim);letter-spacing:.03em}
+  footer{margin-top:26px;color:#5b6484;font-size:11.5px;text-align:center;line-height:1.7}
+  .hidden{display:none}
+  @media(max-width:760px){ .trk{grid-template-columns:112px 1fr} .cell{min-width:12px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="logo"><span class="mark"></span>BEATFORGE</div>
+    <div class="tag">make MIDI · transcribe audio to MIDI · export for Logic Pro</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab on" data-tab="seq">🎛 Step Sequencer → MIDI</button>
+    <button class="tab" data-tab="a2m">🎧 Audio → MIDI</button>
+    <button class="tab" data-tab="help">? How it works</button>
+  </div>
+
+  <!-- ============================ SEQUENCER ============================ -->
+  <section id="tab-seq">
+    <div class="panel">
+      <h2>Transport</h2>
+      <div class="transport">
+        <button class="play" id="play" title="Play / stop (space)">▶</button>
+        <label class="fld">BPM<input type="number" id="bpm" value="140" min="40" max="220" step="1"></label>
+        <label class="fld">Bars<select id="bars">
+          <option>1</option><option selected>2</option><option>3</option>
+          <option>4</option><option>6</option><option>8</option></select></label>
+        <label class="fld">Grid<select id="grid">
+          <option value="16" selected>16th</option><option value="32">32nd</option></select></label>
+        <label class="fld">Swing <span id="swingv" class="note">8%</span>
+          <input type="range" id="swing" min="0" max="0.6" step="0.01" value="0.08"></label>
+        <label class="fld">Volume<input type="range" id="vol" min="0" max="1" step="0.01" value="0.85"></label>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="primary" id="export">⬇ Export .MID</button>
+        <button id="renderWav">🎧 Render WAV</button>
+        <button id="renderMp3" title="uses WebCodecs — Chrome/Edge; falls back to WAV">🎵 MP3</button>
+        <label class="fld" style="max-width:130px">Length<select id="wavLoops">
+          <option value="1">×1 loop</option><option value="2" selected>×2 loops</option>
+          <option value="4">×4 loops</option><option value="8">×8 loops</option></select></label>
+        <button id="clear">Clear all</button>
+        <button id="rand">Randomise</button>
+        <span class="grow"></span>
+      </div>
+      <div id="seqNote" class="warn hidden" style="margin-top:10px"></div>
+      <p class="note" style="margin:10px 0 0">
+        Click a step to place a hit · click again to remove · <span class="kbd">Alt</span>+click = accent ·
+        right-click = erase · drag across drum cells to paint. On <b>pitched</b> tracks drag a cell
+        <b>up/down</b> to change the note, or select the track and use the piano roll below.
+      </p>
+    </div>
+
+    <div class="panel">
+      <h2>Genre <span id="genreNow" style="color:var(--accent);text-transform:none;letter-spacing:0"></span></h2>
+      <div id="genreBar"></div>
+      <div id="genreDesc" class="note" style="margin-top:10px"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Tracks</h2>
+      <div class="tracks" id="tracks"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Piano roll — <span id="prName" style="color:var(--accent);text-transform:none;letter-spacing:0">808 Bass</span></h2>
+      <div class="row" style="margin-bottom:9px">
+        <button class="sm" id="octDown">◀ octave</button>
+        <button class="sm" id="octUp">octave ▶</button>
+        <span class="note" id="octLabel">C2 – B2</span>
+        <span class="grow"></span>
+        <span class="note">for pitched tracks · click to add / remove a note</span>
+      </div>
+      <div id="pianoRoll" style="overflow-x:auto"></div>
+    </div>
+  </section>
+
+  <!-- ============================ AUDIO → MIDI ============================ -->
+  <section id="tab-a2m" class="hidden">
+    <div class="panel">
+      <h2>1 · Drop an audio file</h2>
+      <div class="drop" id="drop">
+        <div style="font-size:15px;font-weight:700;margin-bottom:5px">Drop a drum loop, a melody, a bassline or a full beat</div>
+        <div class="note">WAV · MP3 · M4A · AIFF · OGG — analysed locally, nothing is uploaded anywhere</div>
+        <div class="note">Works with no server at all: the page contains its own analyser, and will use the
+          Python engine automatically if it's running</div>
+        <div class="note" style="margin-top:8px">or <b>click to choose a file</b> · <span id="demoRow"></span></div>
+      </div>
+      <input type="file" id="file" accept="audio/*" class="hidden">
+      <div class="meter"><i id="prog"></i></div>
+      <div class="note" id="status" style="margin-top:8px">Ready.</div>
+    </div>
+
+    <div class="panel">
+      <h2>2 · Detection settings</h2>
+      <div class="transport">
+        <label class="fld">Mode<select id="mode">
+          <option value="auto" selected>Auto (drums + bass + melody)</option>
+          <option value="drums">Drums only</option>
+          <option value="melody">Pitched only (bass + melody)</option></select></label>
+        <label class="fld">Grid<select id="a2mGrid">
+          <option value="16" selected>16th</option><option value="8">8th</option>
+          <option value="32">32nd</option><option value="4">Quarter</option></select></label>
+        <label class="fld">Quantise <span id="qv" class="note">100%</span>
+          <input type="range" id="quant" min="0" max="1" step="0.05" value="1"></label>
+        <label class="fld">Sensitivity <span id="sv" class="note">50%</span>
+          <input type="range" id="sens" min="0.1" max="0.9" step="0.05" value="0.5"></label>
+        <label class="fld">Tempo<input type="text" id="a2mBpm" value="auto" placeholder="auto"></label>
+        <label class="fld">Engine<select id="engine">
+          <option value="auto" selected>Auto (server → browser)</option>
+          <option value="browser">In-browser only</option>
+          <option value="server">Server only</option></select></label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="sm" id="halfBtn">÷ 2 tempo</button>
+        <button class="sm" id="dblBtn">× 2 tempo</button>
+        <span class="note">Half-time trap is ambiguous: 140 and 70 BPM describe the same audio.
+          Use these if the detection picked the wrong octave.</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>3 · Result</h2>
+      <div id="resEmpty" class="note">Nothing transcribed yet — run an analysis to see the notes here.</div>
+      <div id="resBox" class="hidden">
+        <div class="stats" id="stats"></div>
+        <canvas id="timeline" height="230"></canvas>
+        <div class="row" style="margin-top:12px">
+          <button class="primary" id="dl">⬇ Download .MID</button>
+          <button id="toSeq">▶ Open in sequencer</button>
+          <button class="ghost" id="playRes">🔊 Preview</button>
+        </div>
+      </div>
+      <div class="warn" id="a2mWarn"></div>
+    </div>
+  </section>
+
+  <!-- ============================ HELP ============================ -->
+  <section id="tab-help" class="hidden">
+    <div class="panel">
+      <h2>What this thing actually does</h2>
+      <h3>Step sequencer → MIDI</h3>
+      <p class="note">Program a beat on the grid, hear it instantly (Web Audio synthesis, no samples needed),
+        then export a Standard MIDI File. Drum lanes are written to MIDI channel 10 with General MIDI note
+        numbers (kick 36, snare 38, clap 39, closed hat 42, open hat 46), so dragging the file onto a
+        Drum Kit Designer track in Logic Pro lines up first time. Pitched lanes go to channels 1–3.</p>
+
+      <h3>Genres</h3>
+      <p class="note">18 styles in four families, each written as an authentic signature groove rather than
+        a generic loop — house is four-on-the-floor with offbeat bass and open hats, reggaeton is the dembow
+        kick on 1 &amp; 3 with the snare on 3/6/11/14, amapiano is a log-drum bass sliding through the scale
+        under a 16th shaker, drum &amp; bass is a 2-step break with ghost snares. Loading a genre sets its
+        tempo, length, swing and pattern together.</p>
+      <div class="stats">
+        <div class="stat"><b>Hip-hop</b><span>Trap · Boom bap · Drill · Lo-fi · Grime · Phonk</span></div>
+        <div class="stat"><b>Club &amp; bass</b><span>House · Techno · UK garage · Jersey club · Drum &amp; bass · Dubstep</span></div>
+        <div class="stat"><b>Afro &amp; Caribbean</b><span>Afrobeats · Amapiano · Dancehall · Reggaeton</span></div>
+        <div class="stat"><b>Pop &amp; funk</b><span>Pop/EDM · Funk/breakbeat</span></div>
+      </div>
+      <p class="note">Patterns are verified in the test suite: <span class="kbd">tests/genre-rhythms.cjs</span>
+        asserts each genre's signature rhythm (22 checks — four-on-the-floor, dembow placement, half-time
+        snare, ghost notes, triplet kicks, swung 8ths), and <span class="kbd">tests/genre-export.cjs</span>
+        loads all 18, range-checks every step and pitch, and builds a valid MIDI file for each.</p>
+      <p class="note"><b>Randomise</b> is genre-aware: it keeps the loaded style's rhythmic feel, then drops a
+        few hits, adds fill hits, and moves pitches within the genre's scale (each genre declares its root and
+        mode — minor, dorian, major, phrygian).</p>
+
+      <h3>Rendering your pattern to audio</h3>
+      <p class="note"><b>Render WAV</b> bounces the pattern with <span class="kbd">OfflineAudioContext</span> —
+        faster than real time, in the browser, through the same synth voices and master chain you hear.
+        Output is 44.1 kHz 16-bit stereo PCM, peak-normalised to −0.4 dBFS, with a 2 s tail so the reverb
+        isn't cut off. Length is ×1/×2/×4/×8 loops of whatever you programmed. Logic Pro, Live, FL and
+        Reaper all import it directly.</p>
+      <p class="note"><b>MP3</b> uses the WebCodecs <span class="kbd">AudioEncoder</span>, which Chrome and
+        Edge ship but Safari does not always expose. If it isn't available the button tells you and points
+        at WAV rather than failing quietly — so WAV is the path that always works.</p>
+
+      <h3>Audio → MIDI</h3>
+      <p class="note">The server analyses the waveform: a per-band whitened spectral-flux onset detector
+        finds the hits, each hit is classified by which band its <i>attack</i> lives in (sub → kick,
+        mid → clap/snare, high → hat), and a YIN pitch tracker with loudness weighting transcribes the
+        bass and melody lines. Tempo comes from a comb-filtered autocorrelation, then the period is
+        refined against the onset grid — without that last step a 0.1% tempo error drifts a whole
+        16th note after 20 bars.</p>
+
+      <h3>Two engines, same idea</h3>
+      <p class="note">BEATFORGE ships two transcriber implementations so it never depends on a server:</p>
+      <p class="note"><b>Server engine</b> (<span class="kbd">server.py</span>, numpy/scipy) — bigger FFTs,
+        fully band-limited pitch tracking, the most accurate. Used automatically when the server is reachable,
+        or when you pick “Server only”.<br>
+        <b>In-browser engine</b> — a JavaScript port that runs on decoded audio with no backend at all.
+        Works from a downloaded file, offline, in a sandboxed preview, anywhere. Faster, and drum-accurate,
+        but its pitched lanes are noticeably weaker.</p>
+
+      <h3>Measured accuracy</h3>
+      <p class="note">Drum lanes scored against a known 140 BPM arrangement — 42 s of audio, bars 1–24,
+        including every 16th-note hat run and 32nd roll in it (<span class="kbd">bench.py</span>):</p>
+      <div class="stats">
+        <div class="stat"><b>100% / 100%</b><span>kick recall / precision</span></div>
+        <div class="stat"><b>92% / 96%</b><span>clap recall / precision</span></div>
+        <div class="stat"><b>70% / 97%</b><span>closed hat recall / precision</span></div>
+        <div class="stat"><b>±0%</b><span>tempo error</span></div>
+        <div class="stat"><b>59%</b><span>bass line recall (server)</span></div>
+        <div class="stat"><b>40–58%</b><span>melody recall</span></div>
+      </div>
+      <p class="note">The drum lanes went through three rounds of measurement. Two findings mattered:
+        spectral flux is scale-invariant, so low-frequency ripple in near-silence registers as much
+        "flux" as a real kick (a false kick at 7.18 s had 4.8 flux but only 12% of a real kick's energy —
+        fixed with an attack test on absolute band energy); and a kick's own pitch sweep (150 → 46 Hz)
+        crosses several FFT bins and invents extra onsets, so per-band picking is only safe for the high
+        band. Hats are the remaining weak lane: the model is strongest on the loud backbeats and weaker on
+        quiet 16th runs, and precision is high — extras are usually real hits the detector places one
+        grid step away, not noise.</p>
+      <p class="note">Bass and melody still want the server engine, and still want stems over full mixes:
+        single-channel transcription cannot fully separate a melody from a sustaining pad underneath it.</p>
+
+      <details style="margin-top:12px"><summary>Keyboard shortcuts</summary>
+        <p class="note" style="margin-top:8px">
+          <span class="kbd">Space</span> play/stop ·
+          <span class="kbd">1–8</span> select track ·
+          <span class="kbd">↑</span>/<span class="kbd">↓</span> transpose selected track's notes ·
+          <span class="kbd">Alt</span>+click accent ·
+          right-click erase</p>
+      </details>
+      <p class="note" style="margin-top:14px">Files this pairs with: the <b>beat.wav</b>,
+        <b>midi/*.mid</b> and <b>stems/</b> from the code-generated “Midnight Kampala” beat — load
+        <b>stems/melody.wav</b> or <b>stems/808.wav</b> into the transcriber and it will hand the
+        parts back to you as MIDI you can edit.</p>
+    </div>
+  </section>
+
+  <footer>
+    BEATFORGE · sequencer and transcription run locally in your browser + a small numpy/scipy server ·
+    no accounts, no cloud, no samples<br>
+    Exports: MIDI (SMF type 1, 480 PPQ, GM drum map) + WAV (44.1 kHz 16-bit) + MP3 via WebCodecs —<br>all opening directly in Logic Pro, Ableton, FL Studio and Reaper.
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* ======================================================================
+   0. tiny helpers
+   ====================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const nm = m => NOTE_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/* ======================================================================
+   1. state
+   ====================================================================== */
+const TRACK_DEFS = [
+  { id:"kick",  name:"Kick",       sound:"kick",  color:"#ff8a5b", type:"drum"  },
+  { id:"clap",  name:"Clap",       sound:"clap",  color:"#ff4d6d", type:"drum"  },
+  { id:"snare", name:"Snare",      sound:"snare", color:"#ffb84d", type:"drum"  },
+  { id:"hat",   name:"Hat closed", sound:"hat",   color:"#4ce0b3", type:"drum"  },
+  { id:"ohat",  name:"Hat open",   sound:"ohat",  color:"#3fd0e0", type:"drum"  },
+  { id:"bass",  name:"808 Bass",   sound:"bass",  color:"#7a6cff", type:"pitch" },
+  { id:"pluck", name:"Melody",     sound:"pluck", color:"#e0a3ff", type:"pitch" },
+  { id:"pad",   name:"Pad",        sound:"pad",   color:"#9fb4ff", type:"pitch" },
+];
+const GM_NOTE = { kick:36, snare:38, clap:39, hat:42, ohat:46 };
+
+const state = {
+  bpm:140, bars:2, grid:16, swing:0.08,
+  playing:false, curStep:0,
+  sel:"bass", octaveLow:36,
+  tracks:{},            // id -> { steps: Map(stepIndex -> {pitch,vel}) }
+  lastResult:null,      // last transcription
+};
+
+function totalSteps(){ return (state.bars || 2) * (state.grid || 16); }
+function stepDur(){ return (60 / (state.bpm || 140)) / ((state.grid || 16) / 4); }
+function newTrack(id){
+  return { steps:new Map(), mute:false };
+}
+function resetTracks(){
+  state.tracks = {};
+  TRACK_DEFS.forEach(t => state.tracks[t.id] = newTrack(t.id));
+}
+resetTracks();
+
+/* ======================================================================
+   2. Web Audio engine
+   ====================================================================== */
+let ctx = null, master = null, reverbBus = null, comp = null;
+const lookahead = 0.12;
+
+function initAudio(){
+  if (ctx) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  master = ctx.createGain();
+  master.gain.value = parseFloat($("#vol").value);
+  // gentle glue + safety clipper, same idea as the beat generator's master chain
+  const shaper = ctx.createWaveShaper();
+  const n = 1024, curve = new Float32Array(n);
+  for (let i = 0; i < n; i++){ const x = (i / (n - 1)) * 2 - 1; curve[i] = Math.tanh(x * 1.6) / Math.tanh(1.6); }
+  shaper.curve = curve; shaper.oversample = "2x";
+  comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -12; comp.ratio.value = 3; comp.attack.value = 0.004; comp.release.value = 0.16;
+  master.connect(shaper); shaper.connect(comp); comp.connect(ctx.destination);
+
+  // simple algorithmic reverb (exponentially decaying noise IR)
+  const len = Math.floor(ctx.sampleRate * 1.9);
+  const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let c = 0; c < 2; c++){
+    const d = ir.getChannelData(c);
+    for (let i = 0; i < len; i++){
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6) * (i < 400 ? i / 400 : 1);
+    }
+  }
+  const conv = ctx.createConvolver(); conv.buffer = ir;
+  reverbBus = ctx.createGain(); reverbBus.gain.value = 0.24;
+  reverbBus.connect(conv); conv.connect(master);
+}
+function noiseBuffer(dur){
+  const n = Math.max(1, Math.floor(ctx.sampleRate * dur));
+  const b = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  return b;
+}
+function mtof(m){ return 440 * Math.pow(2, (m - 69) / 12); }
+
+/* --- voices ------------------------------------------------------------ */
+function playKick(t, v){
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "sine"; o.frequency.setValueAtTime(150, t);
+  o.frequency.exponentialRampToValueAtTime(46, t + 0.045);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(v, t + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.36);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.4);
+  const ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(0.012);
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2400;
+  const ng = ctx.createGain(); ng.gain.setValueAtTime(v * 0.32, t);
+  ng.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+  ns.connect(hp); hp.connect(ng); ng.connect(master); ns.start(t);
+}
+function playSnare(t, v){
+  const ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(0.22);
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1900; bp.Q.value = 0.8;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(v * 0.72, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
+  ns.connect(bp); bp.connect(g); g.connect(master); g.connect(reverbBus); ns.start(t);
+  const o = ctx.createOscillator(), og = ctx.createGain();
+  o.type = "triangle"; o.frequency.value = 184;
+  og.gain.setValueAtTime(v * 0.5, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+  o.connect(og); og.connect(master); o.start(t); o.stop(t + 0.12);
+}
+function playClap(t, v){
+  for (let i = 0; i < 3; i++){
+    const tt = t + i * 0.009;
+    const ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(0.05);
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1500; bp.Q.value = 1.1;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(v * (0.85 - i * 0.14), tt);
+    g.gain.exponentialRampToValueAtTime(0.001, tt + 0.045);
+    ns.connect(bp); bp.connect(g); g.connect(master); g.connect(reverbBus); ns.start(tt);
+  }
+  const ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(0.22);
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2300; bp.Q.value = 0.7;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(v * 0.4, t + 0.024);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+  ns.connect(bp); bp.connect(g); g.connect(reverbBus); g.connect(master); ns.start(t + 0.024);
+}
+function playHat(t, v, open){
+  const dur = open ? 0.3 : 0.05;
+  const ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(dur + 0.03);
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = open ? 7200 : 8200;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(v * (open ? 0.34 : 0.42), t + 0.001);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  ns.connect(hp); hp.connect(g); g.connect(master);
+  if (open) g.connect(reverbBus);
+  ns.start(t);
+}
+function playBass(t, m, v, dur){
+  const f = mtof(m);
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(f * 1.5, t);
+  o.frequency.exponentialRampToValueAtTime(f, t + 0.05);
+  const len = Math.max(dur, 0.28);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(v * 0.95, t + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.001, t + len);
+  const ws = ctx.createWaveShaper();
+  const c = new Float32Array(256);
+  for (let i = 0; i < 256; i++){ const x = (i / 255) * 2 - 1; c[i] = Math.tanh(x * 2.2); }
+  ws.curve = c;
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2400;
+  o.connect(ws); ws.connect(lp); lp.connect(g); g.connect(master);
+  o.start(t); o.stop(t + len + 0.05);
+}
+function playPluck(t, m, v, dur){
+  const f = mtof(m);
+  const parts = [[1, 1], [2, 0.4], [3, 0.22], [4.19, 0.13], [5.42, 0.08]];
+  parts.forEach(([ratio, amp]) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "sine"; o.frequency.value = f * ratio;
+    const tau = 0.4 / (1 + (ratio - 1) * 0.55);
+    const len = Math.max(dur * 0.9, 0.25) + 0.2;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(v * 0.5 * amp, t + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.001, t + Math.min(len, tau * 4));
+    o.connect(g); g.connect(master); g.connect(reverbBus);
+    o.start(t); o.stop(t + Math.min(len, tau * 4) + 0.05);
+  });
+}
+function playPad(t, m, v, dur){
+  const f = mtof(m);
+  const g = ctx.createGain();
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1500;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(v * 0.22, t + 0.35);
+  g.gain.setValueAtTime(v * 0.22, t + Math.max(0.4, dur - 0.25));
+  g.gain.linearRampToValueAtTime(0, t + Math.max(0.5, dur));
+  [-0.007, 0, 0.006].forEach(det => {
+    const o = ctx.createOscillator();
+    o.type = "sawtooth"; o.frequency.value = f * (1 + det);
+    o.connect(lp); o.start(t); o.stop(t + Math.max(0.6, dur) + 0.3);
+  });
+  lp.connect(g); g.connect(master); g.connect(reverbBus);
+}
+function playSound(sound, t, m, v, dur){
+  switch (sound){
+    case "kick":  return playKick(t, v);
+    case "snare": return playSnare(t, v);
+    case "clap":  return playClap(t, v);
+    case "hat":   return playHat(t, v, false);
+    case "ohat":  return playHat(t, v, true);
+    case "bass":  return playBass(t, m, v, dur);
+    case "pluck": return playPluck(t, m, v, dur);
+    case "pad":   return playPad(t, m, v, dur);
+  }
+}
+
+/* ======================================================================
+   3. sequencer core + scheduler
+   ====================================================================== */
+let nextStepTime = 0, schedTimer = null, lastDrawn = -1;
+
+function scheduleStep(i, t){
+  const list = [];
+  TRACK_DEFS.forEach(td => {
+    const tr = state.tracks[td.id];
+    if (!tr || tr.mute) return;
+    const n = tr.steps.get(i);
+    if (!n) return;
+    const dur = (td.type === "pitch") ? stepDur() * (n.len || 1) : 0.2;
+    list.push([td.sound, n.pitch, n.vel, dur]);
+  });
+  // swing: push odd 16th steps later
+  const swingOffset = (i % 2 === 1) ? state.swing * stepDur() * 0.5 : 0;
+  list.forEach(([s, p, v, d]) => playSound(s, t + swingOffset, p, v, d));
+}
+function tick(){
+  const dur = stepDur();
+  while (nextStepTime < ctx.currentTime + lookahead){
+    scheduleStep(state.curStep, nextStepTime);
+    nextStepTime += dur;
+    state.curStep = (state.curStep + 1) % totalSteps();
+  }
+  if (state.curStep !== lastDrawn){ lastDrawn = state.curStep; paintPlayhead(); }
+}
+function startPlay(){
+  initAudio();
+  if (ctx.state === "suspended") ctx.resume();
+  state.playing = true; state.curStep = 0; nextStepTime = ctx.currentTime + 0.06;
+  schedTimer = setInterval(tick, 25);
+  $("#play").classList.add("on"); $("#play").textContent = "■";
+}
+function stopPlay(){
+  state.playing = false; clearInterval(schedTimer); schedTimer = null;
+  $("#play").classList.remove("on"); $("#play").textContent = "▶";
+  lastDrawn = -1; paintPlayhead();
+}
+$("#play").onclick = () => state.playing ? stopPlay() : startPlay();
+
+/* ======================================================================
+   4. grid rendering
+   ====================================================================== */
+function buildTracks(){
+  const host = $("#tracks");
+  host.innerHTML = "";
+  TRACK_DEFS.forEach(td => {
+    const row = document.createElement("div");
+    row.className = "trk" + (state.sel === td.id ? " sel" : "");
+    row.dataset.id = td.id;
+
+    const info = document.createElement("div");
+    info.className = "tinfo";
+    const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = td.color;
+    const name = document.createElement("span"); name.className = "tname"; name.textContent = td.name;
+    name.onclick = () => { state.sel = td.id; refreshAll(); };
+    const mute = document.createElement("button"); mute.className = "ico"; mute.textContent = "M";
+    mute.title = "mute";
+    mute.onclick = () => { state.tracks[td.id].mute = !state.tracks[td.id].mute; refreshAll(); };
+    const clr = document.createElement("button"); clr.className = "ico"; clr.textContent = "×";
+    clr.title = "clear lane";
+    clr.onclick = () => { state.tracks[td.id].steps.clear(); refreshAll(); };
+    info.append(dot, name, mute, clr);
+    row.appendChild(info);
+
+    const bars = document.createElement("div"); bars.className = "bars";
+    for (let b = 0; b < state.bars; b++){
+      const bar = document.createElement("div"); bar.className = "bar"; bar.style.flex = "1";
+      const bn = document.createElement("div"); bn.className = "bnum"; bn.textContent = "bar " + (b + 1);
+      const steps = document.createElement("div"); steps.className = "steps";
+      steps.style.gridTemplateColumns = `repeat(${state.grid}, 1fr)`;
+      for (let s = 0; s < state.grid; s++){
+        const idx = b * state.grid + s;
+        const cell = document.createElement("button");
+        cell.className = "cell" + (s % 4 === 0 ? " beat" : "");
+        cell.dataset.step = idx; cell.dataset.track = td.id;
+        cell.innerHTML = "<span></span>";
+        steps.appendChild(cell);
+      }
+      bar.append(bn, steps); bars.appendChild(bar);
+    }
+    row.appendChild(bars);
+    host.appendChild(row);
+  });
+  paintAll();
+  buildPianoRoll();
+}
+
+function cellAt(trackId, step){ return $(`.cell[data-track="${trackId}"][data-step="${step}"]`); }
+
+function paintAll(){
+  TRACK_DEFS.forEach(td => {
+    const tr = state.tracks[td.id];
+    $$(`.cell[data-track="${td.id}"]`).forEach(c => {
+      const n = tr.steps.get(+c.dataset.step);
+      const sp = c.firstChild;
+      if (n){
+        c.classList.add("on");
+        c.style.background = td.color;
+        c.style.opacity = 0.55 + 0.45 * n.vel;
+        sp.textContent = td.type === "pitch" ? nm(n.pitch && n.pitch > 0 ? n.pitch : 40).replace("#", "♯") : "";
+      } else {
+        c.classList.remove("on");
+        c.style.background = ""; c.style.opacity = "";
+        sp.textContent = "";
+      }
+    });
+    const row = $(`.trk[data-id="${td.id}"]`);
+    if (row) row.querySelector(".ico").classList.toggle("m", tr.mute);
+  });
+  paintPlayhead();
+}
+function paintPlayhead(){
+  $$(".cell.cur").forEach(c => c.classList.remove("cur"));
+  if (!state.playing) return;
+  $$(`.cell[data-step="${lastDrawn}"]`).forEach(c => c.classList.add("cur"));
+  // preview playhead for the current step so it moves at low framerates
+  $$(`.cell[data-step="${state.curStep}"]`).forEach(c => c.classList.add("cur"));
+}
+
+function setStep(trackId, step, on, vel, pitch){
+  const td = TRACK_DEFS.find(t => t.id === trackId);
+  const tr = state.tracks[trackId];
+  if (on){
+    const prev = tr.steps.get(step);
+    const defPitch = td.type === "pitch" ? (pitch != null ? pitch : (trackId === "bass" ? 45 : 69)) : 0;
+    tr.steps.set(step, { pitch: pitch != null ? pitch : (prev ? prev.pitch : defPitch), vel: vel || 0.9, len: 1 });
+  } else tr.steps.delete(step);
+  paintAll();
+  paintPianoRoll();
+}
+
+let paintMode = null;
+function wireGrid(){
+  const host = $("#tracks");
+  let suppressToggle = false;
+  host.addEventListener("mousedown", e => {
+    if (suppressToggle){ suppressToggle = false; return; }
+    const cell = e.target.closest(".cell");
+    if (!cell) return;
+    if (e.button === 2) return;
+    const id = cell.dataset.track, step = +cell.dataset.step;
+    const tr = state.tracks[id];
+    const has = tr.steps.has(step);
+    const td = TRACK_DEFS.find(t => t.id === id);
+    if (td.type === "pitch" && e.shiftKey){ return; }   // handled by drag-pitch below
+    if (has && !e.altKey) setStep(id, step, false);
+    else setStep(id, step, true, e.altKey ? 1 : 0.9);
+    paintMode = has ? "erase" : "draw";
+    state.sel = id; refreshAll();
+    e.preventDefault();
+  });
+  host.addEventListener("mouseover", e => {
+    if (!paintMode) return;
+    const cell = e.target.closest(".cell");
+    if (!cell) return;
+    const id = cell.dataset.track, step = +cell.dataset.step;
+    const td = TRACK_DEFS.find(t => t.id === id);
+    if (td.type === "pitch") return;                    // don't smear pitches while painting
+    setStep(id, step, paintMode === "draw", 0.9);
+  });
+  window.addEventListener("mouseup", () => paintMode = null);
+  host.addEventListener("contextmenu", e => {
+    const cell = e.target.closest(".cell");
+    if (cell){ e.preventDefault(); setStep(cell.dataset.track, +cell.dataset.step, false); }
+  });
+  // vertical pitch drag on pitched lanes
+  let dragPitch = null;
+  host.addEventListener("mousedown", e => {
+    const cell = e.target.closest(".cell");
+    if (!cell) return;
+    const td = TRACK_DEFS.find(t => t.id === cell.dataset.track);
+    if (!td || td.type !== "pitch") return;
+    const tr = state.tracks[td.id];
+    if (!tr.steps.has(+cell.dataset.step)) return;
+    dragPitch = { id: td.id, step: +cell.dataset.step, y: e.clientY,
+                  start: tr.steps.get(+cell.dataset.step).pitch };
+    suppressToggle = true;                       // don't let the click handler delete it
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
+  window.addEventListener("mousemove", e => {
+    if (!dragPitch) return;
+    const dy = Math.round((dragPitch.y - e.clientY) / 11);
+    const p = clamp(dragPitch.start + dy, 24, 96);
+    const tr = state.tracks[dragPitch.id];
+    const n = tr.steps.get(dragPitch.step);
+    if (n){ n.pitch = p; paintAll(); }
+  });
+  window.addEventListener("mouseup", () => { dragPitch = null; suppressToggle = false; });
+}
+
+/* ======================================================================
+   5. piano roll
+   ====================================================================== */
+let prOctave = 36;      // lowest C shown
+let prKey = "";
+function buildPianoRoll(){
+  const host = $("#pianoRoll");
+  const key = [state.sel, state.bars, state.grid, prOctave].join("|");
+  if (key === prKey && host.firstChild){ paintPianoRoll(); return; }
+  prKey = key;
+  const td = TRACK_DEFS.find(t => t.id === state.sel);
+  host.innerHTML = "";
+  if (!td || td.type !== "pitch"){
+    host.innerHTML = '<div class="note">Select a pitched track (808 Bass, Melody or Pad) to edit notes here.</div>';
+    return;
+  }
+  $("#prName").textContent = td.name;
+  $("#octLabel").textContent = nm(prOctave + 12) + " – " + nm(prOctave + 23);
+  const grid = document.createElement("div");
+  grid.style.display = "grid";
+  grid.style.gridTemplateColumns = `52px repeat(${totalSteps()}, minmax(15px,1fr))`;
+  grid.style.gap = "3px";
+  for (let row = 23; row >= 0; row--){
+    const pitch = prOctave + row;
+    const lab = document.createElement("div");
+    lab.className = "note"; lab.style.cssText = "font-size:10px;padding:2px 4px;text-align:right";
+    lab.textContent = nm(pitch);
+    if (pitch % 12 === 0) lab.style.color = "#c9d1e8";
+    grid.appendChild(lab);
+    for (let s = 0; s < totalSteps(); s++){
+      const cell = document.createElement("button");
+      cell.className = "cell";
+      cell.style.aspectRatio = "auto"; cell.style.height = "14px";
+      cell.dataset.pr = "1"; cell.dataset.pitch = pitch; cell.dataset.step = s;
+      if ((pitch % 12 === 0)) cell.style.borderColor = "#2b3558";
+      const n = state.tracks[td.id].steps.get(s);
+      if (n && n.pitch === pitch){ cell.classList.add("on"); cell.style.background = td.color; }
+      cell.onclick = () => {
+        const tr = state.tracks[td.id];
+        const cur = tr.steps.get(s);
+        if (cur && cur.pitch === pitch) tr.steps.delete(s);
+        else { tr.steps.set(s, { pitch, vel: 0.9, len: 1 }); state.sel = td.id; }
+        refreshAll();
+      };
+      grid.appendChild(cell);
+    }
+  }
+  host.appendChild(grid);
+}
+function paintPianoRoll(){
+  const td = TRACK_DEFS.find(t => t.id === state.sel);
+  if (!td || td.type !== "pitch") return;
+  $$('#pianoRoll .cell').forEach(c => {
+    const p = +c.dataset.pitch, s = +c.dataset.step;
+    const n = state.tracks[td.id].steps.get(s);
+    const on = !!(n && n.pitch === p);
+    c.classList.toggle("on", on);
+    c.style.background = on ? td.color : "";
+  });
+}
+$("#octDown").onclick = () => { prOctave = clamp(prOctave - 12, 12, 84); buildPianoRoll(); };
+$("#octUp").onclick = () => { prOctave = clamp(prOctave + 12, 12, 84); buildPianoRoll(); };
+
+/* ======================================================================
+   6. MIDI file writer (SMF type 1, 480 PPQ)
+   ====================================================================== */
+function vlq(n){
+  const out = [n & 0x7F]; n >>= 7;
+  while (n){ out.unshift(0x80 | (n & 0x7F)); n >>= 7; }
+  return out;
+}
+function str(s){ return Array.from(s, c => c.charCodeAt(0) & 0x7F); }
+function u32(n){ return [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255]; }
+function u16(n){ return [(n >> 8) & 255, n & 255]; }
+
+/** tracks: [{name, channel, notes:[{step, pitch, len, vel}] , gridStepsPerBar}] */
+function buildSMF(tracks, bpm, ppq, grid){
+  const chunks = [];
+  // conductor
+  let t0 = [].concat([0x00, 0xFF, 0x03, 4], str("BEAT"), [0x00, 0xFF, 0x51, 0x03],
+    u32(Math.round(60000000 / bpm)).slice(1), [0x00, 0xFF, 0x58, 0x04, 4, 2, 24, 8], [0x00, 0xFF, 0x2F, 0x00]);
+  chunks.push(t0);
+
+  tracks.forEach(tr => {
+    const ticksPerStep = (ppq * 4) / grid;         // grid = steps per bar (16 => 16th notes)
+    const evs = [];
+    tr.notes.forEach(n => {
+      const start = n.step * ticksPerStep;
+      const len = Math.max(8, (n.len || 1) * ticksPerStep * 0.92);
+      evs.push([start, 0, n.pitch, Math.round((n.vel || 0.9) * 127), tr.channel]);
+      evs.push([start + len, 1, n.pitch, 0, tr.channel]);
+    });
+    evs.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    let out = [].concat([0x00, 0xFF, 0x03, tr.name.length & 0x7F], str(tr.name));
+    let last = 0;
+    evs.forEach(([t, off, pitch, vel, ch]) => {
+      out = out.concat(vlq(Math.max(0, t - last)));
+      out = out.concat(off ? [0x80 | ch, pitch, 0x40] : [0x90 | ch, pitch, clamp(vel, 1, 127)]);
+      last = t;
+    });
+    out = out.concat([0x00, 0xFF, 0x2F, 0x00]);
+    chunks.push(out);
+  });
+
+  let bytes = [].concat(str("MThd"), u32(6), u16(1), u16(chunks.length), u16(ppq));
+  chunks.forEach(c => { bytes = bytes.concat(str("MTrk"), u32(c.length), c); });
+  return new Uint8Array(bytes);
+}
+function download(blob, filename){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+function exportSequencer(quiet){
+  const tracks = [];
+  TRACK_DEFS.forEach(td => {
+    const tr = state.tracks[td.id];
+    if (!tr.steps.size) return;
+    const notes = [];
+    tr.steps.forEach((n, step) => {
+      notes.push({
+        step,
+        pitch: td.type === "drum" ? GM_NOTE[td.sound] : n.pitch,
+        len: 1,
+        vel: n.vel,
+      });
+    });
+    tracks.push({ name: td.name, channel: td.type === "drum" ? 9 : (2 + tracks.length), notes });
+  });
+  if (!tracks.length){ alert("Nothing to export — add some steps first."); return null; }
+  const smf = buildSMF(tracks, state.bpm, 480, state.grid);
+  if (!quiet) download(new Blob([smf], { type: "audio/midi" }), `beatforge-${state.bpm}bpm.mid`);
+  return smf;
+}
+$("#export").onclick = () => exportSequencer(false);
+
+/* ======================================================================
+   6b. offline render -> WAV
+   Renders the pattern faster than real time with OfflineAudioContext, then encodes
+   a 16-bit PCM WAV. No server, no encoder library, works offline.
+   ====================================================================== */
+async function renderPatternBuffer(loops, tailSec){
+  initAudio();                                  // make sure the globals exist to swap
+  const srOut = 44100;
+  const patDur = totalSteps() * stepDur();
+  const dur = patDur * loops + (tailSec == null ? 2.0 : tailSec);
+  const off = new OfflineAudioContext(2, Math.ceil(dur * srOut), srOut);
+
+  // swap the live graph for an offline one of the same shape
+  const saved = { ctx, master, reverbBus, comp };
+  ctx = off;
+
+  master = off.createGain();
+  master.gain.value = parseFloat($("#vol").value);
+  const shaper = off.createWaveShaper();
+  const n = 1024, curve = new Float32Array(n);
+  for (let i = 0; i < n; i++){
+    const x = (i / (n - 1)) * 2 - 1;
+    curve[i] = Math.tanh(x * 1.6) / Math.tanh(1.6);
+  }
+  shaper.curve = curve; shaper.oversample = "2x";
+  comp = off.createDynamicsCompressor();
+  comp.threshold.value = -12; comp.ratio.value = 3;
+  comp.attack.value = 0.004; comp.release.value = 0.16;
+  master.connect(shaper); shaper.connect(comp); comp.connect(off.destination);
+
+  const irLen = Math.floor(srOut * 1.9);
+  const ir = off.createBuffer(2, irLen, srOut);
+  for (let c = 0; c < 2; c++){
+    const d = ir.getChannelData(c);
+    for (let i = 0; i < irLen; i++){
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / irLen, 2.6) * (i < 400 ? i / 400 : 1);
+    }
+  }
+  const conv = off.createConvolver(); conv.buffer = ir;
+  reverbBus = off.createGain(); reverbBus.gain.value = 0.24;
+  reverbBus.connect(conv); conv.connect(master);
+
+  // schedule every loop of the pattern
+  for (let l = 0; l < loops; l++){
+    const base = 0.03 + l * patDur;
+    for (let i = 0; i < totalSteps(); i++) scheduleStep(i, base + i * stepDur());
+  }
+
+  const rendered = await off.startRendering();
+  ctx = saved.ctx; master = saved.master; reverbBus = saved.reverbBus; comp = saved.comp;
+  return rendered;
+}
+
+function encodeWav(buffer, normalizeTo){
+  const ch = buffer.numberOfChannels, len = buffer.length, sr = buffer.sampleRate;
+  const data = [];
+  let peak = 0;
+  for (let c = 0; c < ch; c++){
+    const a = buffer.getChannelData(c);
+    data.push(a);
+    for (let i = 0; i < len; i++){ const v = a[i] < 0 ? -a[i] : a[i]; if (v > peak) peak = v; }
+  }
+  const gain = peak > 0 ? (normalizeTo == null ? 0.95 : normalizeTo) / peak : 1;
+  const blockAlign = ch * 2;
+  const dataBytes = len * blockAlign;
+  const out = new ArrayBuffer(44 + dataBytes);
+  const dv = new DataView(out);
+  const str = (o, t) => { for (let i = 0; i < t.length; i++) dv.setUint8(o + i, t.charCodeAt(i)); };
+  str(0, "RIFF"); dv.setUint32(4, 36 + dataBytes, true); str(8, "WAVE");
+  str(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, ch, true);
+  dv.setUint32(24, sr, true); dv.setUint32(28, sr * blockAlign, true);
+  dv.setUint16(32, blockAlign, true); dv.setUint16(34, 16, true);
+  str(36, "data"); dv.setUint32(40, dataBytes, true);
+  let o = 44;
+  for (let i = 0; i < len; i++){
+    for (let c = 0; c < ch; c++){
+      let v = data[c][i] * gain;
+      if (v > 1) v = 1; else if (v < -1) v = -1;
+      dv.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7FFF, true);
+      o += 2;
+    }
+  }
+  return new Uint8Array(out);
+}
+
+/* Compressed export. WAV (above) is the always-works, lossless path. MP3 here uses
+   WebCodecs, which Chrome/Edge ship and Safari does not always expose -- if it's
+   missing we say so and point at the WAV button rather than failing silently. */
+async function encodeMp3(buffer, bitrate){
+  if (typeof AudioEncoder === "undefined" || typeof AudioData === "undefined"){
+    throw new Error("This browser has no WebCodecs AudioEncoder — use Render WAV (Logic reads WAV natively).");
+  }
+  const cfg = { codec: "mp3", sampleRate: buffer.sampleRate, numberOfChannels: 2,
+                bitrate: bitrate || 192000 };
+  if (AudioEncoder.isConfigSupported){
+    const sup = await AudioEncoder.isConfigSupported(cfg).catch(() => ({ supported: false }));
+    if (!sup || !sup.supported) throw new Error("MP3 encoding isn't supported here — use Render WAV.");
+  }
+  const chunks = [];
+  let encodeError = null;
+  const enc = new AudioEncoder({
+    output: (chunk) => {
+      const b = new Uint8Array(chunk.byteLength);
+      chunk.copyTo(b);
+      chunks.push(b);
+    },
+    error: (e) => { encodeError = e; },
+  });
+  enc.configure(cfg);
+
+  // interleaved f32 -> planar f32: the encoder wants one plane per channel
+  const ch = Math.min(2, buffer.numberOfChannels);
+  const L = buffer.getChannelData(0);
+  const R = ch > 1 ? buffer.getChannelData(1) : L;
+  const FRAMES = 1152;                       // one MPEG frame
+  for (let start = 0; start < buffer.length; start += FRAMES){
+    const n = Math.min(FRAMES, buffer.length - start);
+    const planar = new Float32Array(n * 2);
+    planar.set(L.subarray(start, start + n), 0);
+    planar.set(R.subarray(start, start + n), n);
+    const ad = new AudioData({
+      format: "f32-planar", sampleRate: buffer.sampleRate, numberOfFrames: n,
+      numberOfChannels: 2, timestamp: Math.round(start / buffer.sampleRate * 1e6), data: planar,
+    });
+    enc.encode(ad);
+    ad.close();
+    if (encodeError) throw encodeError;
+  }
+  await enc.flush();
+  if (encodeError) throw encodeError;
+  const total = chunks.reduce((s, c) => s + c.length, 0);
+  const out = new Uint8Array(total);
+  let o = 0;
+  chunks.forEach(c => { out.set(c, o); o += c.length; });
+  if (total < 1024) throw new Error("MP3 encoding produced no audio.");
+  return out;                                 // raw MPEG frame stream = playable .mp3
+}
+
+$("#renderMp3").onclick = async () => {
+  const anyNotes = TRACK_DEFS.some(td => state.tracks[td.id].steps.size > 0);
+  if (!anyNotes){ alert("Nothing to render yet — program some steps first."); return; }
+  const btn = $("#renderMp3"), label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Encoding…";
+  try {
+    const loops = parseInt($("#wavLoops").value, 10);
+    const buf = await renderPatternBuffer(loops, 1.5);
+    const mp3 = await encodeMp3(buf, 192000);
+    download(new Blob([mp3], { type: "audio/mpeg" }),
+      `beatforge-${state.bpm}bpm-${state.bars}bar-${loops}x.mp3`);
+    btn.textContent = "✓ Done";
+    setTimeout(() => { btn.textContent = label; }, 1600);
+  } catch (err){
+    alert("MP3 export: " + err.message);
+    btn.textContent = label;
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$("#renderWav").onclick = async () => {
+  const anyNotes = TRACK_DEFS.some(td => state.tracks[td.id].steps.size > 0);
+  if (!anyNotes){ alert("Nothing to render yet — program some steps first."); return; }
+  const btn = $("#renderWav"), label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Rendering…";
+  try {
+    const loops = parseInt($("#wavLoops").value, 10);
+    const buf = await renderPatternBuffer(loops, 2.0);
+    const wav = encodeWav(buf, 0.95);
+    download(new Blob([wav], { type: "audio/wav" }),
+      `beatforge-${state.bpm}bpm-${state.bars}bar-${loops}x.wav`);
+    btn.textContent = "✓ Rendered";
+    setTimeout(() => { btn.textContent = label; }, 1600);
+  } catch (err){
+    alert("Render failed: " + err.message);
+    btn.textContent = label;
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+/* ======================================================================
+   7. presets
+   ====================================================================== */
+/* Pattern helpers. A genre is written as a short core (usually 2 bars = 32 steps)
+   and repeated, which keeps the data readable and makes 4-bar genres trivial. */
+const R = (a, b, stride = 1) => { const o = []; for (let i = a; i <= b; i += stride) o.push(i); return o; };
+const rep = (pat, times, span) => {
+  const o = [];
+  for (let t = 0; t < times; t++){
+    pat.forEach(v => o.push(Array.isArray(v) ? [v[0] + t * span, ...v.slice(1)] : v + t * span));
+  }
+  return o;
+};
+
+/* Lane formats:
+     drum lanes    -> step number                    (velocity 0.9)
+                      [step, velocity]               (accent / ghost)
+     pitched lanes -> [step, midiNote]  [step, midiNote, length]
+                      [step, midiNote, length, velocity]
+   `scale` + `root` drive the genre-aware Randomise button. */
+const GENRES = {
+  /* ---------------------------------------------------------------- hip-hop */
+  trap: { name:"Trap", family:"Hip-hop", bpm:140, bars:2, swing:0.05, root:45, scale:"minor",
+    desc:"Half-time 140, sliding 808, rolling 16th hats. The default lane setup.",
+    tracks:{
+      kick:[0,6,10,16,22,26], clap:[8,24],
+      hat:[2,4,6,8,10,12,14,18,20,22,24,26,28,30], ohat:[14,30],
+      bass:[[0,45,3],[6,45,3],[10,57,2],[12,52,3],[16,41,3],[22,41,3],[26,53,2],[28,48,3]],
+      pluck:[[0,69,2],[3,72,2],[6,76,2],[10,74,2],[13,72,2],
+             [16,69,2],[20,76,2],[23,74,2],[26,72,2],[28,72,3]],
+    }},
+  boombap: { name:"Boom bap", family:"Hip-hop", bpm:90, bars:2, swing:0.32, root:45, scale:"minor",
+    desc:"90 BPM, hard swung 8ths, dusty kick/snare, jazzy chops.",
+    tracks:{
+      kick:[0,10,16,22], snare:[[4,1],[12,0.85],[20,1],[28,0.9]],
+      hat:[[0,0.5],[2,0.75],[4,0.5],[6,0.75],[8,0.5],[10,0.75],[12,0.5],[14,0.75],
+           [16,0.5],[18,0.75],[20,0.5],[22,0.75],[24,0.5],[26,0.75],[28,0.5],[30,0.75]],
+      bass:[[0,45,4],[10,45,3],[16,41,4],[22,48,4],[28,43,3]],
+      pluck:[[0,72,3],[6,76,3],[12,74,2],[16,69,3],[22,72,3],[28,76,2]],
+      pad:[[0,57,8],[16,53,8]],
+    }},
+  drill: { name:"Drill", family:"Hip-hop", bpm:144, bars:2, swing:0.0, root:45, scale:"minor",
+    desc:"144 BPM, sliding 808, triplet-flavoured kick, dark sparse melody.",
+    tracks:{
+      kick:[0,3,6,10,16,19,22,26], clap:[[8,1],[24,1]],
+      hat:[2,4,6,8,10,12,14,18,20,22,24,26,28,30,31],
+      bass:[[0,45,3],[6,52,2],[10,45,2],[12,48,3],[16,41,3],[22,48,2],[26,41,2],[28,43,3]],
+      pluck:[[0,81,2],[4,79,2],[8,76,3],[12,77,2],[16,81,2],[20,79,2],[24,76,3],[28,74,3]],
+    }},
+  lofi: { name:"Lo-fi", family:"Hip-hop", bpm:85, bars:2, swing:0.34, root:45, scale:"dorian",
+    desc:"85 BPM, lazy swing, soft drums, warm 7th chords to loop over.",
+    tracks:{
+      kick:[0,10,16,24], snare:[[4,0.8],[12,0.9],[20,0.8],[28,0.9]],
+      hat:[0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30],
+      bass:[[0,45,5],[10,43,4],[16,41,5],[24,48,4]],
+      pluck:[[0,64,2],[4,67,2],[8,71,3],[14,69,2],[16,65,3],[22,69,2],[24,72,3],[30,71,2]],
+      pad:[[0,60,10],[16,57,10]],
+    }},
+  grime: { name:"Grime", family:"Hip-hop", bpm:140, bars:2, swing:0.0, root:33, scale:"minor",
+    desc:"140 BPM, square-wave sub, syncopated snares, deliberately skeletal.",
+    tracks:{
+      kick:[0,10,16,26], snare:[4,12,20,28],
+      hat:[0,2,4,6,8,10,12,14,16,18,20,22,24,26,28],
+      bass:[[0,33,4],[8,33,2],[16,36,4],[20,33,2],[24,31,4],[28,31,2]],
+      pluck:[[0,60,2],[3,63,2],[10,60,2],[16,58,2],[19,60,2],[26,65,2]],
+    }},
+  phonk: { name:"Phonk", family:"Hip-hop", bpm:130, bars:2, swing:0.02, root:45, scale:"minor",
+    desc:"130 BPM, cowbell-ish percussion, tape-saturated 808, drifting pads.",
+    tracks:{
+      kick:[0,6,10,16,20,26], clap:[[8,1],[24,1]],
+      hat:[2,4,6,8,10,12,14,16,18,20,22,24,26,28], ohat:[14,30],
+      bass:[[0,45,4],[6,48,2],[10,45,2],[16,43,4],[22,41,3],[26,45,3]],
+      pluck:[[0,76,2],[6,74,2],[12,72,2],[16,71,2],[22,72,2],[26,74,2]],
+      pad:[[0,57,14],[16,55,14]],
+    }},
+
+  /* ------------------------------------------------------------ club & bass */
+  house: { name:"House", family:"Club & bass", bpm:124, bars:2, swing:0.06, root:33, scale:"minor",
+    desc:"124 BPM, four-on-the-floor, offbeat bass and open hats, piano stabs.",
+    tracks:{
+      kick:R(0,31,4), clap:[[4,1],[12,1],[20,1],[28,1]],
+      ohat:R(2,30,4), hat:R(0,30,4),
+      bass:[[2,33,2],[6,33,2],[10,33,2],[14,33,2],[18,29,2],[22,29,2],[26,29,2],[30,29,2]],
+      pluck:[[2,60,1],[4,64,1],[6,67,1],[10,60,1],[12,64,1],[14,67,1],
+             [18,57,1],[20,60,1],[22,65,1],[26,57,1],[28,60,1],[30,65,1]],
+    }},
+  techno: { name:"Techno", family:"Club & bass", bpm:132, bars:2, swing:0.0, root:33, scale:"minor",
+    desc:"132 BPM, relentless 16th sub bass, offbeat opens, a single drone.",
+    tracks:{
+      kick:R(0,31,4), clap:[[4,0.9],[12,0.9],[20,0.9],[28,0.9]],
+      ohat:R(2,30,4),
+      hat:rep([[1,0.45],[3,0.5],[5,0.45],[7,0.5],[9,0.45],[11,0.5],[13,0.45],[15,0.5]], 2, 16),
+      bass:[...R(0,31,1).map(st => [st, st % 16 === 8 ? 36 : 33, 1, st % 4 === 0 ? 1 : 0.7])],
+      pad:[[0,45,16],[16,43,16]],
+    }},
+  ukgarage: { name:"UK garage", family:"Club & bass", bpm:134, bars:2, swing:0.22, root:33, scale:"minor",
+    desc:"134 BPM 2-step: skipping shuffled hats, punchy kick, deep sub.",
+    tracks:{
+      kick:[0,10,16,26], clap:[[4,0.9],[12,1],[20,0.9],[28,1]],
+      hat:[0,2,3,6,8,10,11,14,16,18,19,22,24,26,27,30],
+      bass:[[0,33,3],[6,38,2],[10,36,2],[16,29,3],[22,34,2],[26,33,2]],
+      pluck:[[3,60,1],[7,63,1],[11,67,1],[19,60,1],[23,63,1],[27,65,1]],
+    }},
+  jersey: { name:"Jersey club", family:"Club & bass", bpm:135, bars:2, swing:0.0, root:33, scale:"minor",
+    desc:"135 BPM, rapid triplet kicks and stamping claps — high energy.",
+    tracks:{
+      kick:[0,3,6,8,11,14,16,19,22,24,27,30],
+      clap:[[4,1],[12,1],[20,1],[28,1],[14,0.6],[30,0.6]],
+      hat:R(0,31,2), ohat:[7,23],
+      bass:[[0,33,4],[8,33,2],[16,29,4],[24,31,3]],
+      pluck:[[2,60,1],[6,63,1],[10,60,1],[18,57,1],[22,60,1],[26,58,1]],
+    }},
+  dnb: { name:"Drum & bass", family:"Club & bass", bpm:174, bars:2, swing:0.0, root:33, scale:"minor",
+    desc:"174 BPM 2-step break with ghost snares, 16th hats and a deep sub.",
+    tracks:{
+      kick:[0,10,16,26],
+      snare:[[4,1],[12,1],[20,1],[28,1],[7,0.4],[15,0.4],[23,0.45],[31,0.4]],
+      hat:R(0,31,2),
+      bass:[[0,33,3],[6,33,2],[10,36,2],[16,29,3],[22,31,2],[26,33,2]],
+      pad:[[0,57,16],[16,53,16]],
+    }},
+  dubstep: { name:"Dubstep", family:"Club & bass", bpm:140, bars:2, swing:0.0, root:33, scale:"phrygian",
+    desc:"140 BPM half-time, cavernous kick and snare, long growling sub notes.",
+    tracks:{
+      kick:[[0,1],[16,1]], snare:[[8,1],[24,1]],
+      hat:R(0,31,2), ohat:[14,30],
+      bass:[[0,33,7],[8,34,3],[16,29,7],[24,31,4]],
+      pad:[[0,45,16],[16,41,16]],
+      pluck:[[4,60,2],[12,63,2],[20,58,2],[28,60,2]],
+    }},
+
+  /* -------------------------------------------------------- afro & caribbean */
+  afrobeats: { name:"Afrobeats", family:"Afro & Caribbean", bpm:106, bars:4, swing:0.12, root:45, scale:"minor",
+    desc:"106 BPM, syncopated kick, shaker 16ths, melodic bass, bright guitar-ish licks.",
+    tracks:{
+      kick:rep([0,10,16,26], 2, 32), clap:rep([[4,0.85],[12,1],[20,0.85],[28,1]], 2, 32),
+      hat:R(0,63,1).map(st => [st, st % 4 === 0 ? 0.7 : 0.42]),   // 16th shaker, accented
+      ohat:[14,30,46,62],
+      bass:rep([[0,45,3],[6,48,2],[10,45,2],[14,43,2],
+                [16,41,3],[22,45,2],[26,41,2],[30,40,2]], 2, 32),
+      pluck:rep([[2,76,2],[6,74,2],[9,72,2],[13,69,2],
+                 [16,72,2],[20,76,2],[23,79,2],[26,76,3]], 2, 32),
+      pad:[[0,57,16],[16,53,16],[32,60,16],[48,55,16]],
+    }},
+  amapiano: { name:"Amapiano", family:"Afro & Caribbean", bpm:112, bars:4, swing:0.14, root:45, scale:"minor",
+    desc:"112 BPM, log-drum bass sliding through the scale, shakers, spare piano chops.",
+    tracks:{
+      kick:rep([0,6,10,16,22,26], 2, 32), clap:rep([[4,0.8],[12,0.95],[20,0.8],[28,0.95]], 2, 32),
+      hat:R(0,63,1).map(st => [st, st % 2 === 0 ? 0.62 : 0.4]),   // 16th shaker
+      ohat:[14,30,46,62],
+      /* the log drum: pitch movement is the whole sound here */
+      bass:rep([[0,45,3],[3,48,1],[6,45,2],[10,52,2],[12,50,2],
+                [16,45,3],[19,48,1],[22,45,2],[26,52,2],[28,50,2]], 2, 32),
+      pluck:rep([[0,69,2],[4,72,2],[8,76,3],[14,72,2]], 2, 32),
+      pad:[[0,57,16],[16,53,16],[32,60,16],[48,55,16]],
+    }},
+  dancehall: { name:"Dancehall", family:"Afro & Caribbean", bpm:100, bars:2, swing:0.06, root:45, scale:"minor",
+    desc:"100 BPM one-drop bounce, skanking offbeat chords, rolling bass.",
+    tracks:{
+      kick:[0,6,16,22], snare:[[8,1],[24,1]],
+      hat:[2,6,10,14,18,22,26,30],
+      bass:[[0,45,3],[6,48,2],[10,45,2],[16,43,3],[22,45,2],[26,41,3]],
+      pluck:[[2,69,1],[4,72,1],[6,69,1],[10,72,1],[12,69,1],[14,72,1],
+             [18,65,1],[20,69,1],[22,65,1],[26,69,1],[28,72,1],[30,69,1]],
+    }},
+  reggaeton: { name:"Reggaeton", family:"Afro & Caribbean", bpm:95, bars:2, swing:0.0, root:45, scale:"minor",
+    desc:"95 BPM dembow — the boom-ch-boom-chick that everything else hangs off.",
+    tracks:{
+      kick:[0,8,16,24], snare:[3,6,11,14,19,22,27,30],
+      hat:[2,6,10,14,18,22,26,30],
+      bass:[[0,45,3],[6,45,2],[8,48,3],[14,48,2],[16,43,3],[22,43,2],[24,45,3],[30,45,2]],
+      pluck:[[3,69,1],[6,72,1],[11,74,1],[14,72,1],[19,69,1],[22,72,1],[27,74,1],[30,76,1]],
+    }},
+
+  /* ------------------------------------------------------------ pop & funk */
+  pop: { name:"Pop / EDM", family:"Pop & funk", bpm:128, bars:2, swing:0.0, root:48, scale:"major",
+    desc:"128 BPM four-on-the-floor with an open-hat lift and a hook on top.",
+    tracks:{
+      kick:R(0,31,4), clap:[[4,1],[12,1],[20,1],[28,1]],
+      ohat:R(2,30,4), hat:R(0,30,4),
+      bass:[[0,48,4],[8,48,4],[16,45,4],[24,43,4]],
+      pluck:[[0,72,2],[2,76,2],[4,79,3],[8,76,2],[10,72,2],[12,74,3],
+             [16,69,2],[18,72,2],[20,76,3],[24,74,2],[26,72,2],[28,71,3]],
+      pad:[[0,60,16],[16,57,16]],
+    }},
+  funk: { name:"Funk / breakbeat", family:"Pop & funk", bpm:105, bars:2, swing:0.18, root:45, scale:"dorian",
+    desc:"105 BPM syncopated break with ghost snares and a busy funky bass.",
+    tracks:{
+      kick:[0,10,16,22],
+      snare:[[4,1],[12,1],[20,1],[28,1],[7,0.35],[15,0.35],[23,0.4],[31,0.35]],
+      hat:[[0,0.5],[2,0.75],[4,0.5],[6,0.75],[8,0.5],[10,0.75],[12,0.5],[14,0.75],
+           [16,0.5],[18,0.75],[20,0.5],[22,0.75],[24,0.5],[26,0.75],[28,0.5],[30,0.75]],
+      bass:[[0,45,2],[3,52,1],[6,45,2],[10,48,2],[12,50,2],
+            [16,45,2],[19,52,1],[22,45,2],[26,43,2],[28,45,3]],
+      pluck:[[2,64,1],[5,69,1],[8,72,1],[14,69,1],[18,64,1],[21,67,1],[24,72,1],[30,67,1]],
+    }},
+};
+const PRESETS = GENRES;          // alias kept for older test harnesses
+
+const SCALES = {
+  minor:    [0, 2, 3, 5, 7, 8, 10],
+  dorian:   [0, 2, 3, 5, 7, 9, 10],
+  major:    [0, 2, 4, 5, 7, 9, 11],
+  phrygian: [0, 1, 3, 5, 7, 8, 10],
+};
+function scalePitches(root, scaleName, octaves){
+  const sc = SCALES[scaleName] || SCALES.minor;
+  const out = [];
+  for (let o = 0; o < (octaves || 3); o++) sc.forEach(iv => out.push(root + o * 12 + iv));
+  return out;
+}
+
+let currentGenre = "trap";
+
+function loadPreset(key, opts){
+  const p = GENRES[key];
+  if (!p) return;
+  opts = opts || {};
+  resetTracks();
+  currentGenre = key;
+  state.bpm = p.bpm; state.bars = p.bars; state.grid = 16; state.swing = p.swing;
+  if (!opts.dontTouchUI){
+    $("#bpm").value = p.bpm; $("#bars").value = p.bars; $("#grid").value = 16;
+    $("#swing").value = p.swing; $("#swingv").textContent = Math.round(p.swing * 100) + "%";
+  }
+  const maxStep = p.bars * 16;
+  for (const [id, arr] of Object.entries(p.tracks)){
+    const td = TRACK_DEFS.find(t => t.id === id);
+    if (!td) continue;
+    arr.forEach(item => {
+      let step, pitch = 0, len = 1, vel = 0.9;
+      if (Array.isArray(item)){
+        if (td.type === "pitch"){ [step, pitch, len = 1, vel = 0.9] = item; }
+        else { [step, vel = 0.9] = item; }
+      } else step = item;
+      if (!(step >= 0 && step < maxStep)) return;          // guard against bad data
+      if (td.type === "pitch" && !(pitch >= 21 && pitch <= 108)) return;
+      state.tracks[id].steps.set(step, { pitch, vel: Math.max(0.1, Math.min(1, vel)), len: Math.max(1, len) });
+    });
+  }
+  renderGenreBar();
+  refreshAll();
+}
+
+function renderGenreBar(){
+  const bar = $("#genreBar");
+  if (!bar.children.length || bar.dataset.built !== "1"){
+    bar.innerHTML = "";
+    const families = [];
+    Object.entries(GENRES).forEach(([k, g]) => {
+      if (!families.includes(g.family)) families.push(g.family);
+    });
+    families.forEach(fam => {
+      const wrap = document.createElement("div");
+      wrap.className = "gfamily";
+      const lab = document.createElement("div");
+      lab.className = "flabel"; lab.textContent = fam;
+      const row = document.createElement("div"); row.className = "gbtns";
+      Object.entries(GENRES).forEach(([k, g]) => {
+        if (g.family !== fam) return;
+        const b = document.createElement("button");
+        b.className = "gbtn"; b.dataset.genre = k;
+        b.innerHTML = `<b>${g.name}</b><i>${g.bpm} BPM · ${g.bars} bars</i>`;
+        b.onclick = () => loadPreset(k);
+        row.appendChild(b);
+      });
+      wrap.append(lab, row);
+      bar.appendChild(wrap);
+    });
+    bar.dataset.built = "1";
+  }
+  $$("#genreBar .gbtn").forEach(b => b.classList.toggle("on", b.dataset.genre === currentGenre));
+  const g = GENRES[currentGenre];
+  if (g){
+    $("#genreNow").textContent = "— " + g.name;
+    $("#genreDesc").innerHTML = `<b>${g.name}</b> · ${g.desc} <span class="pill g">${g.bpm} BPM</span>` +
+      (SCALES[g.scale] ? `<span class="pill">${g.scale} · root ${nm(g.root)}</span>` : "");
+  }
+}
+
+$("#clear").onclick = () => { resetTracks(); refreshAll(); };
+$("#rand").onclick = () => {
+  // genre-aware: keep the loaded genre's rhythmic feel, then vary it the way a
+  // producer would -- swap a couple of hits, drop a few, move notes within the scale
+  const g = GENRES[currentGenre] || GENRES.trap;
+  loadPreset(currentGenre, { dontTouchUI: true });
+  const pool = scalePitches(g.root, g.scale, 3);
+  const total = totalSteps();
+  TRACK_DEFS.forEach(td => {
+    const tr = state.tracks[td.id];
+    if (!tr.steps.size) return;
+    [...tr.steps.keys()].forEach(st => { if (Math.random() < 0.14) tr.steps.delete(st); });
+    const wanted = Math.max(2, Math.round(tr.steps.size * 0.15));
+    for (let i = 0; i < wanted; i++){
+      const st = Math.floor(Math.random() * total);
+      if (tr.steps.has(st)) continue;
+      const n = tr.steps.get([...tr.steps.keys()][0]) || { vel: 0.7 };
+      tr.steps.set(st, {
+        pitch: td.type === "pitch" ? pool[Math.floor(Math.random() * pool.length)] : 0,
+        vel: Math.max(0.35, Math.min(1, (n.vel || 0.8) * (0.7 + Math.random() * 0.5))),
+        len: 1 + Math.floor(Math.random() * 2),
+      });
+    }
+    if (td.type === "pitch"){
+      tr.steps.forEach(n => {
+        if (Math.random() < 0.35){
+          const i = pool.reduce((best, p, idx) => Math.abs(p - n.pitch) < Math.abs(pool[best] - n.pitch) ? idx : best, 0);
+          const j = Math.max(0, Math.min(pool.length - 1, i + (Math.random() < 0.5 ? -1 : 1)));
+          n.pitch = pool[j];
+        }
+      });
+    }
+  });
+  renderGenreBar();
+  refreshAll();
+};
+
+/* ======================================================================
+   8. transcription client
+   ====================================================================== */
+let decoded = null;          // {samples: Float32Array(mono), sr}
+let lastBlobUrl = null;
+
+async function decodeAudioFile(file){
+  const buf = await file.arrayBuffer();
+  if (!ctx) initAudio();
+  const audio = await ctx.decodeAudioData(buf.slice(0));
+  const ch = audio.numberOfChannels;
+  const mono = new Float32Array(audio.length);
+  for (let c = 0; c < ch; c++){
+    const d = audio.getChannelData(c);
+    for (let i = 0; i < audio.length; i++) mono[i] += d[i] / ch;
+  }
+  // normalise + trim silence so tiny files behave
+  let peak = 0; for (let i = 0; i < mono.length; i++) peak = Math.max(peak, Math.abs(mono[i]));
+  if (peak > 0) for (let i = 0; i < mono.length; i++) mono[i] /= peak;
+  return { samples: mono, sr: audio.sampleRate };
+}
+
+/* resample to 22050 mono (cheap linear interpolation) + limiter to 90 s */
+function prepareSamples(mono, srIn, srOut = 22050, maxSeconds = 90){
+  // guard: a missing/NaN sample rate used to produce silently empty audio
+  if (!Number.isFinite(srIn) || srIn <= 0) srIn = 44100;
+  if (!mono || !mono.length) return { samples: new Float32Array(0), sr: srOut, truncated: false };
+  const ratio = srIn / srOut;
+  const maxOut = Math.min(Math.floor(mono.length / ratio), Math.floor(srOut * maxSeconds));
+  const out = new Float32Array(maxOut);
+  for (let i = 0; i < maxOut; i++){
+    const x = i * ratio, i0 = Math.floor(x), f = x - i0;
+    out[i] = (mono[i0] || 0) * (1 - f) + (mono[i0 + 1] || 0) * f;
+  }
+  return { samples: out, sr: srOut, truncated: mono.length / ratio > maxOut };
+}
+
+async function transcribeFile(file){
+  const st = $("#status");
+  const setP = (p, t) => { $("#prog").style.width = (p * 100) + "%"; if (t) st.textContent = t; };
+  setP(0.03, "Decoding audio…");
+  try {
+    decoded = decoded || await decodeAudioFile(file);
+  } catch (err){
+    decoded = null;
+    st.textContent = "Could not decode that file in this browser.";
+    $("#a2mWarn").classList.remove("hidden");
+    $("#a2mWarn").textContent = "Decoding failed (" + err.message + "). Try a WAV or MP3.";
+    return;
+  }
+  const prep = prepareSamples(decoded.samples, decoded.sr);
+  if (prep.samples.length < 2048){
+    st.textContent = "That file decoded to almost no audio.";
+    $("#a2mWarn").classList.remove("hidden");
+    $("#a2mWarn").textContent = "The decoded audio was empty or too short to analyse. " +
+      "Try a different file, or a longer excerpt.";
+    return;
+  }
+  const engine = $("#engine").value;
+  const bpmTxt = $("#a2mBpm").value.trim();
+  const opts = {
+    mode: $("#mode").value,
+    grid: parseInt($("#a2mGrid").value, 10),
+    sensitivity: parseFloat($("#sens").value),
+    quantize: parseFloat($("#quant").value),
+    bpmOverride: bpmTxt === "" ? null : parseFloat(bpmTxt),
+  };
+  if (opts.bpmOverride && !(opts.bpmOverride > 20)) opts.bpmOverride = null;
+
+  // ---- try the server first (more accurate) unless the user forced in-browser
+  if (engine !== "browser"){
+    setP(0.15, `Sending ${(prep.samples.length / prep.sr).toFixed(1)} s of audio to the server analyser…`);
+    const q = new URLSearchParams({
+      sr: String(prep.sr), mode: opts.mode,
+      bpm: opts.bpmOverride ? String(opts.bpmOverride) : "auto",
+      sensitivity: String(opts.sensitivity), quantize: String(opts.quantize), grid: String(opts.grid),
+    });
+    try {
+      const r = await fetch("/api/audio2midi?" + q.toString(), {
+        method: "POST", headers: { "Content-Type": "application/octet-stream" },
+        body: prep.samples.buffer,
+      });
+      if (!r.ok) throw new Error("server said " + r.status);
+      const res = await r.json();
+      res.engine_used = "server";
+      setP(1, "Done (server analyser).");
+      showResult(res, prep.truncated);
+      $("#a2mWarn").classList.add("hidden");
+      return;
+    } catch (err){
+      if (engine === "server"){
+        setP(0, "Server unreachable.");
+        $("#a2mWarn").classList.remove("hidden");
+        $("#a2mWarn").textContent = "Server analyser unreachable (" + err.message + "). Start it with " +
+          "`python3 server.py`, or switch Engine to “In-browser only”.";
+        return;
+      }
+      // otherwise fall through to the built-in analyser
+    }
+  }
+
+  // ---- in-browser analyser (no server, no upload)
+  setP(0.05, "Running the in-browser analyser…");
+  await new Promise(r => setTimeout(r, 30));       // let the progress bar paint
+  try {
+    const res = localTranscribe(prep.samples, prep.sr, opts, buildSMF,
+      (p, label) => setP(0.05 + p * 0.93, label || "Analysing…"));
+    res.midi_b64 = bytesToBase64(res.bytes);
+    res.engine_used = "browser";
+    showResult(res, prep.truncated);
+    $("#a2mWarn").classList.remove("hidden");
+    const pitched = res.tracks.some(t => t.kind === "pitched");
+    $("#a2mWarn").textContent = "Transcribed in your browser — no server was needed and nothing left " +
+      "this machine. Drums come out as well as the server engine; " +
+      (pitched ? "the bass/melody lanes are rougher here, so start the server (python3 server.py) " +
+                 "or switch Engine to “Server only” if you want cleaner pitched lines." 
+              : "that's the strong case for the in-browser engine.");
+  } catch (err){
+    setP(0, "In-browser analysis failed.");
+    $("#a2mWarn").classList.remove("hidden");
+    $("#a2mWarn").textContent = "In-browser analysis failed: " + err.message;
+  }
+}
+
+function showResult(res, truncated){
+  state.lastResult = res;
+  $("#resEmpty").classList.add("hidden");
+  $("#resBox").classList.remove("hidden");
+  const s = res.stats;
+  $("#stats").innerHTML = [
+    ["Detected tempo", res.bpm.toFixed(1) + " BPM"],
+    ["Confidence", Math.round(res.conf * 100) + "%"],
+    ["Onsets found", s.onsets],
+    ["Notes written", s.notes],
+    ["Bars", s.bars],
+    ["Analysed", s.analyzed_s + " s"],
+    ["Engine", res.engine_used === "server" ? "server" : "in-browser"],
+  ].map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join("");
+  if (truncated){
+    $("#a2mWarn").classList.remove("hidden");
+    $("#a2mWarn").textContent = "Only the first 90 seconds were analysed.";
+  }
+  drawTimeline(res);
+}
+
+function drawTimeline(res){
+  const cv = $("#timeline");
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = cv.clientWidth, H = 230;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = "#0a0e1a"; g.fillRect(0, 0, W, H);
+
+  const lanes = res.tracks;
+  const total = lanes.reduce((m, t) => Math.max(m, ...t.notes.map(n => n.step + n.len)), 1);
+  const laneH = (H - 26) / Math.max(1, lanes.length);
+  const x = st => 8 + (st / total) * (W - 16);
+
+  // grid
+  g.strokeStyle = "#151c2f"; g.lineWidth = 1;
+  for (let b = 0; b <= total / 16; b++){
+    const px = x(b * 16);
+    g.beginPath(); g.moveTo(px, 0); g.lineTo(px, H); g.stroke();
+  }
+  const COLORS = { Kick:"#ff8a5b", Snare:"#ffb84d", Clap:"#ff4d6d", "Hh Closed":"#4ce0b3",
+                   "Hh Open":"#3fd0e0", Bass:"#7a6cff", Melody:"#e0a3ff", Pad:"#9fb4ff" };
+  lanes.forEach((lane, li) => {
+    const y0 = 14 + li * laneH;
+    g.fillStyle = "#8b93ad"; g.font = "600 10px ui-sans-serif,system-ui";
+    g.fillText(lane.name.toUpperCase(), 10, y0 - 4);
+    const col = COLORS[lane.name] || "#7a6cff";
+    if (lane.kind === "pitched"){
+      const pitches = lane.notes.map(n => n.pitch);
+      const lo = Math.min(...pitches), hi = Math.max(...pitches);
+      lane.notes.forEach(n => {
+        const px = x(n.step);
+        const py = y0 + (1 - (n.pitch - lo) / Math.max(1, hi - lo)) * (laneH - 12);
+        g.fillStyle = col;
+        g.fillRect(px, py, Math.max(3, x(n.step + n.len) - px), 4);
+      });
+    } else {
+      lane.notes.forEach(n => {
+        const px = x(n.step);
+        g.fillStyle = col;
+        g.fillRect(px, y0, Math.max(3, x(n.step + n.len) - px), laneH - 12);
+      });
+    }
+  });
+  g.fillStyle = "#5b6484"; g.font = "10px ui-sans-serif,system-ui";
+  for (let b = 0; b < total / 16; b++) g.fillText("bar " + (b + 1), x(b * 16) + 3, H - 4);
+}
+
+/* send transcription into the sequencer */
+function sendToSequencer(){
+  const res = state.lastResult;
+  if (!res) return;
+  resetTracks();
+  state.bpm = Math.round(res.bpm);
+  $("#bpm").value = state.bpm;
+  const maxStep = Math.max(...res.tracks.map(t => Math.max(...t.notes.map(n => n.step + (n.len || 1)), 0)));
+  const wanted = clamp(Math.ceil(maxStep / 16), 1, 8);
+  const allowed = [1, 2, 3, 4, 6, 8];
+  const bars = allowed.reduce((best, o) => Math.abs(o - wanted) < Math.abs(best - wanted) ? o : best, allowed[0]);
+  state.bars = bars;
+  $("#bars").value = String(bars);
+  const MAP = { "Kick":"kick", "Snare":"snare", "Clap":"clap", "Hh Closed":"hat", "Hh Open":"ohat",
+                "Bass":"bass", "Melody":"pluck", "Pad":"pad" };
+  res.tracks.forEach(t => {
+    const id = MAP[t.name]; if (!id) return;
+    const td = TRACK_DEFS.find(x => x.id === id);
+    t.notes.forEach(n => {
+      const step = Math.round(n.step);
+      if (step < 0 || step >= totalSteps()) return;
+      state.tracks[id].steps.set(step, {
+        pitch: td.type === "pitch" ? n.pitch : 0,
+        vel: clamp(n.vel, 0.25, 1),
+        len: n.len || 1,
+      });
+    });
+  });
+  refreshAll();
+  $("#tab-a2m").classList.add("hidden"); $("#tab-seq").classList.remove("hidden");
+  $$(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === "seq"));
+  const sn = $("#seqNote");
+  const dropped = wanted > bars ? ` (the grid was extended to ${bars} bars to fit)` : "";
+  sn.classList.remove("hidden");
+  sn.textContent = `Imported ${res.stats.notes} notes from audio — ${bars} bars at ${Math.round(res.bpm)} BPM${dropped}.` +
+    ` Delete what you don't want, then Export .MID.`;
+  setTimeout(() => sn.classList.add("hidden"), 9000);
+}
+$("#toSeq").onclick = sendToSequencer;
+$("#dl").onclick = () => {
+  const res = state.lastResult; if (!res) return;
+  let bytes;
+  if (res.bytes) bytes = res.bytes;
+  else {
+    const raw = atob(res.midi_b64);
+    bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  }
+  download(new Blob([bytes], { type: "audio/midi" }),
+    `beatforge-transcription-${Math.round(res.bpm)}bpm.mid`);
+};
+$("#playRes").onclick = async () => {
+  const res = state.lastResult; if (!res) return;
+  initAudio(); if (ctx.state === "suspended") await ctx.resume();
+  const stepS = (60 / res.bpm) / (res.grid / 4);
+  const t0 = ctx.currentTime + 0.12;
+  const MAP = { "Kick":"kick", "Snare":"snare", "Clap":"clap", "Hh Closed":"hat", "Hh Open":"ohat",
+                "Bass":"bass", "Melody":"pluck", "Pad":"pad" };
+  res.tracks.forEach(t => {
+    const sound = MAP[t.name]; if (!sound) return;
+    t.notes.forEach(n => {
+      const t0n = t0 + n.step * stepS;
+      playSound(sound, t0n, n.pitch, clamp(n.vel, 0.2, 1), (n.len || 1) * stepS);
+    });
+  });
+};
+
+/* ---- drag & drop ---- */
+function wireDrop(){
+  const drop = $("#drop"), fi = $("#file");
+  drop.onclick = () => fi.click();
+  fi.onchange = () => { if (fi.files[0]) loadFile(fi.files[0]); };
+  ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.add("hot");
+  }));
+  ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.remove("hot");
+  }));
+  drop.addEventListener("drop", e => {
+    const f = e.dataTransfer.files[0];
+    if (f) loadFile(f);
+  });
+}
+async function loadFile(file){
+  $("#status").textContent = "Loading " + file.name + "…";
+  decoded = null;
+  await transcribeFile(file);
+}
+/* demo buttons: rendered only when the server has demo audio */
+async function wireDemos(){
+  try {
+    const r = await fetch("/api/health");
+    if (!r.ok) return;
+    const demos = [["demo/drums.wav", "drum loop"], ["demo/melody.wav", "melody"],
+                   ["demo/bass.wav", "808 bass"], ["demo/full-beat.wav", "full beat"]];
+    $("#demoRow").innerHTML = demos.map(([p, label]) =>
+      `<a href="#" data-demo="${p}">${label}</a>`).join(" · ");
+    $$("#demoRow a").forEach(a => a.onclick = async e => {
+      e.preventDefault();
+      $("#status").textContent = "Fetching " + a.dataset.demo + "…";
+      const resp = await fetch("/" + a.dataset.demo);
+      if (!resp.ok){ $("#status").textContent = "Demo file not on the server."; return; }
+      const blob = await resp.blob();
+      decoded = null;
+      await transcribeFile(new File([blob], a.dataset.demo));
+    });
+  } catch (e){ /* no server: fine, uploads still work in the hosted version */ }
+}
+
+/* ======================================================================
+   8b. IN-BROWSER ANALYSER
+   A JavaScript port of the server-side transcriber, so audio -> MIDI works
+   with no backend at all: no install, no upload. Slightly less accurate than
+   the numpy version (smaller FFTs, coarser pitch search) but fully standalone.
+   ====================================================================== */
+
+/* --- iterative radix-2 FFT (in place) --- */
+function fftInPlace(re, im){
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++){
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j){
+      let t = re[i]; re[i] = re[j]; re[j] = t;
+      t = im[i]; im[i] = im[j]; im[j] = t;
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1){
+    const ang = -2 * Math.PI / len;
+    const wr = Math.cos(ang), wi = Math.sin(ang);
+    const half = len >> 1;
+    for (let i = 0; i < n; i += len){
+      let cr = 1, ci = 0;
+      for (let k = 0; k < half; k++){
+        const a = i + k, b = a + half;
+        const vr = re[b] * cr - im[b] * ci;
+        const vi = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - vr; im[b] = im[a] - vi;
+        re[a] += vr; im[a] += vi;
+        const ncr = cr * wr - ci * wi;
+        ci = cr * wi + ci * wr; cr = ncr;
+      }
+    }
+  }
+}
+function hannWindow(n){
+  const w = new Float32Array(n);
+  for (let i = 0; i < n; i++) w[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1));
+  return w;
+}
+function localMean(a, win){
+  const n = a.length, out = new Float32Array(n), half = win >> 1;
+  let sum = 0;
+  const at = i => a[Math.max(0, Math.min(n - 1, i))];
+  for (let i = -half; i <= half; i++) sum += at(i);
+  for (let i = 0; i < n; i++){
+    out[i] = sum / win;
+    sum -= at(i - half);
+    sum += at(i + half + 1);
+  }
+  return out;
+}
+
+/* --- stage 1: spectral analysis -> band energies + per-band flux --- */
+function analyseBands(x, sr, onProgress){
+  const NFFT = 1024, HOP = 220;
+  const win = hannWindow(NFFT);
+  const nFrames = Math.max(2, Math.floor((x.length - NFFT) / HOP) + 1);
+  const binHz = sr / NFFT;
+  const iSubEnd = Math.max(1, Math.floor(140 / binHz));          // sub: f < 140
+  const iLowEnd = Math.floor(350 / binHz);                       // low body: 140-350
+  const iMidEnd = Math.min(NFFT / 2, Math.floor(3000 / binHz));  // mid: 350-3000
+  const re = new Float32Array(NFFT), im = new Float32Array(NFFT);
+  const eSub = new Float32Array(nFrames), eLow = new Float32Array(nFrames);
+  const eMid = new Float32Array(nFrames), eHigh = new Float32Array(nFrames);
+  const fSub = new Float32Array(nFrames), fMid = new Float32Array(nFrames), fHigh = new Float32Array(nFrames);
+  const nSub = iSubEnd, nLow = Math.max(1, iLowEnd - iSubEnd), nMid = Math.max(1, iMidEnd - iLowEnd),
+        nHigh = Math.max(1, NFFT / 2 - iMidEnd);
+  let prevSub = new Float32Array(nSub), prevMid = new Float32Array(nMid), prevHigh = new Float32Array(nHigh);
+  let energySub = 0, energyMid = 0, energyHigh = 0;
+
+  for (let f = 0; f < nFrames; f++){
+    const off = f * HOP;
+    for (let i = 0; i < NFFT; i++){ re[i] = x[off + i] * win[i]; im[i] = 0; }
+    fftInPlace(re, im);
+    let sSub = 0, sLow = 0, sMid = 0, sHigh = 0;
+    let flSub = 0, flMid = 0, flHigh = 0;
+    for (let i = 0; i <= NFFT / 2; i++){
+      const mag = Math.sqrt(re[i] * re[i] + im[i] * im[i]);
+      if (i < iSubEnd){
+        sSub += mag;
+        const lg = Math.log1p(mag * 40);
+        const d = lg - prevSub[i]; if (d > 0) flSub += d;
+        prevSub[i] = lg;
+      } else if (i < iLowEnd){
+        sLow += mag;
+      } else if (i < iMidEnd){
+        sMid += mag; energyMid += mag;
+        const lg = Math.log1p(mag * 40);
+        const d = lg - prevMid[i - iLowEnd]; if (d > 0) flMid += d;
+        prevMid[i - iLowEnd] = lg;
+      } else {
+        sHigh += mag; energyHigh += mag;
+        const lg = Math.log1p(mag * 40);
+        const d = lg - prevHigh[i - iMidEnd]; if (d > 0) flHigh += d;
+        prevHigh[i - iMidEnd] = lg;
+      }
+    }
+    // per-BIN mean magnitudes: summing over bins would let the wide high band
+    // (hundreds of bins) swamp the narrow sub band and hide every kick
+    energySub += sSub / nSub;
+    eSub[f] = sSub / nSub; eLow[f] = sLow / nLow; eMid[f] = sMid / nMid; eHigh[f] = sHigh / nHigh;
+    fSub[f] = flSub / nSub; fMid[f] = flMid / nMid; fHigh[f] = flHigh / nHigh;
+    if (onProgress && (f & 511) === 0) onProgress(f / nFrames);
+  }
+
+  // silence gate: a band only counts if it carries a real share of the energy
+  const tot = energySub + energyMid + energyHigh + 1e-12;
+  const present = { sub: energySub / tot > 0.005, mid: energyMid / tot > 0.005, high: energyHigh / tot > 0.005 };
+  const means = [];
+  if (present.sub) means.push(mean(fSub)); if (present.mid) means.push(mean(fMid)); if (present.high) means.push(mean(fHigh));
+  const floor = 0.20 * (means.reduce((a, b) => a + b, 0) / Math.max(1, means.length) + 1e-9);
+  const env = new Float32Array(nFrames);
+  const normF = {};
+  ["sub", "mid", "high"].forEach(k => {
+    const arr = k === "sub" ? fSub : k === "mid" ? fMid : fHigh;
+    if (!present[k]){ normF[k] = new Float32Array(nFrames); return; }
+    const mu = Math.max(mean(arr), floor);
+    const out = new Float32Array(nFrames);
+    for (let i = 0; i < nFrames; i++){ out[i] = arr[i] / mu; env[i] += out[i]; }
+    normF[k] = out;
+  });
+  // light smoothing
+  const sm = new Float32Array(nFrames);
+  for (let i = 0; i < nFrames; i++){
+    sm[i] = 0.2 * env[Math.max(0, i - 1)] + 0.6 * env[i] + 0.2 * env[Math.min(nFrames - 1, i + 1)];
+  }
+  let mx = 0; for (let i = 0; i < nFrames; i++) mx = Math.max(mx, sm[i]);
+  if (mx > 0) for (let i = 0; i < nFrames; i++) sm[i] /= mx;
+  return { env: sm, present, eSub, eLow, eMid, eHigh, flux: normF,
+           fps: sr / HOP, frameOffset: (NFFT / 2) / sr };
+}
+function mean(a){ let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return s / a.length; }
+
+/* --- stage 2: onset peak picking --- */
+function pickPeaksLocal(env, fps, sensitivity, minGapSec, floorRatio){
+  const n = env.length, out = [];
+  if (n < 6) return out;
+  const win = Math.max(3, (Math.round(0.45 * fps) | 1));
+  const lm = localMean(env, win);
+  const k = 0.55 - 0.45 * sensitivity;
+  let floor = 0.012 + 0.05 * (1 - sensitivity);
+  if (floorRatio > 0){
+    const sorted = Array.prototype.slice.call(env).sort((a, b) => a - b);
+    const p90 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))];
+    floor = Math.max(floor, floorRatio * p90);
+  }
+  const gap = Math.max(1, Math.round((minGapSec || 0.045) * fps));
+  const look = Math.max(1, Math.round(0.05 * fps));
+  let i = 1;
+  while (i < n - 1){
+    const thr = Math.max(lm[i] * (1 + k), floor);
+    if (env[i] > thr && env[i] >= env[i - 1] && env[i] >= env[i + 1]){
+      let best = true;
+      for (let j = Math.max(0, i - look); j < Math.min(n, i + look); j++){
+        if (env[j] > env[i] + 1e-9){ best = false; break; }
+      }
+      if (best){ out.push(i); i += gap; continue; }
+    }
+    i++;
+  }
+  return out;
+}
+
+/* --- stage 3: tempo + grid phase --- */
+function detectTempoLocal(env, fps, frameOffset, lo, hi){
+  lo = lo || 60; hi = hi || 190;
+  const n = env.length;
+  let mu = mean(env);
+  const e = new Float32Array(n);
+  for (let i = 0; i < n; i++) e[i] = env[i] - mu;
+  let v0 = 0; for (let i = 0; i < n; i++) v0 += e[i] * e[i];
+  if (v0 <= 0) return { bpm: 120, offset: 0, conf: 0 };
+  const minLag = Math.max(1, Math.round(fps * 60 / hi));
+  const maxLag = Math.min(n - 2, Math.round(fps * 60 / lo));
+  const ac = new Float32Array(maxLag + 1);
+  for (let lag = minLag; lag <= maxLag; lag++){
+    let s = 0;
+    for (let i = 0; i + lag < n; i++) s += e[i] * e[i + lag];
+    ac[lag] = s / v0;
+  }
+  let bestLag = minLag, bestScore = -1e9;
+  const scores = new Float32Array(maxLag + 1);
+  for (let lag = minLag; lag <= maxLag; lag++){
+    let sc = ac[lag];
+    for (const m of [2, 3, 4]) if (lag * m <= maxLag) sc += (0.5 / m) * ac[lag * m];
+    const bpmL = 60 * fps / lag;
+    sc *= 1 + 0.12 * Math.exp(-Math.pow((bpmL - 120) / 60, 2));
+    scores[lag] = sc;
+    if (sc > bestScore){ bestScore = sc; bestLag = lag; }
+  }
+  const coarse = 60 * fps / bestLag;
+  // confidence
+  let m2 = 0, m1 = 0, cnt = 0;
+  for (let i = minLag; i <= maxLag; i++){ m1 += scores[i]; cnt++; }
+  m1 /= cnt;
+  for (let i = minLag; i <= maxLag; i++) m2 += (scores[i] - m1) * (scores[i] - m1);
+  const sd = Math.sqrt(m2 / cnt);
+  const conf = Math.max(0, Math.min(1, ((bestScore - m1) / (sd + 1e-9)) / 6));
+
+  const acfAt = b => { const i = Math.round(60 * fps / b); return (i >= 1 && i <= maxLag) ? ac[i] : -1; };
+  const gridEnergy = (b, div) => {
+    const stepP = (60 / b) / (div || 4);
+    let best = -1;
+    for (let ph = 0; ph < stepP; ph += stepP / 6){
+      const count = Math.floor((n / fps - ph) / stepP) + 1;
+      if (count < 8) continue;
+      let sum = 0, used = 0;
+      for (let k = 0; k < count; k++){
+        const idx = Math.round((ph + k * stepP - frameOffset) * fps);
+        if (idx < 0 || idx >= n) continue;
+        let v = 0;
+        for (let j = Math.max(0, idx - 2); j < Math.min(n, idx + 3); j++) v = Math.max(v, env[j]);
+        sum += v; used++;
+      }
+      if (used >= 8) best = Math.max(best, sum / used);
+    }
+    return best;
+  };
+  const refine = (b0) => {
+    let bb = b0, bv = gridEnergy(b0);
+    for (const step of [0.004, 0.0012]){
+      const c0 = bb * (1 - 3 * step), c1 = bb * (1 + 3 * step), dc = bb * step;
+      for (let c = c0; c <= c1; c += dc){
+        const v = gridEnergy(c);
+        if (v > bv){ bv = v; bb = c; }
+      }
+    }
+    return [bb, bv];
+  };
+  const prior = b => (b < 65 || b > 200) ? -1 : Math.exp(-Math.pow(Math.log2(b / 118) / 0.42, 2));
+  const phaseCoh = (b) => {
+    const stepP = (60 / b) / 4;
+    const peaks = pickPeaksLocal(env, fps, 0.5);
+    if (peaks.length < 4) return 0;
+    const t0 = peaks[0] / fps + frameOffset;
+    let num = 0, den = 0;
+    peaks.forEach(p => {
+      const t = p / fps + frameOffset;
+      const resid = Math.abs((((t - (t0 % stepP)) / stepP) % 1 + 1) % 1);
+      num += env[p] * Math.cos(2 * Math.PI * Math.min(resid, 1 - resid));
+      den += env[p];
+    });
+    return den > 0 ? num / den : 0;
+  };
+  let bestB = coarse, bestS = -1e9;
+  for (const m of [0.5, 1, 2]){
+    const b = coarse * m;
+    if (b < lo || b > hi) continue;
+    const [br, fit] = refine(b);
+    const sc = 0.45 * acfAt(br) + 1.10 * prior(br) + 0.30 * phaseCoh(br) + 0.25 * fit;
+    if (sc > bestS){ bestS = sc; bestB = br; }
+  }
+  // phase = circular mean of onset phases
+  const step = (60 / bestB) / 4;
+  const peaks = pickPeaksLocal(env, fps, 0.5);
+  let off = 0;
+  if (peaks.length >= 3){
+    let c = 0, s = 0;
+    peaks.forEach(p => {
+      const t = p / fps + frameOffset;
+      const ph = ((t % step) / step) * 2 * Math.PI;
+      c += env[p] * Math.cos(ph); s += env[p] * Math.sin(ph);
+    });
+    if (Math.abs(c) > 1e-9 || Math.abs(s) > 1e-9){
+      off = (Math.atan2(s, c) / (2 * Math.PI)) * step;
+      while (off > step * 0.5) off -= step;
+      off = Math.max(0, off);
+    }
+  }
+  return { bpm: bestB, offset: off, conf };
+}
+
+function bandWinMean(arr, a, b){
+  let s = 0, c = 0;
+  for (let i = Math.max(0, a); i < Math.min(arr.length, b); i++){ s += arr[i]; c++; }
+  return c ? s / c : 0;
+}
+function attackRatioLocal(an, frame, band){
+  const arr = band === "sub" ? an.eSub : band === "mid" ? an.eMid : an.eHigh;
+  const pre = bandWinMean(arr, frame - 6, frame - 1);
+  const atk = bandWinMean(arr, frame, frame + 9);
+  return (atk - pre) / (atk + 1e-12);
+}
+
+/* --- stage 4: drum lane classification (from band energies, baseline subtracted) --- */
+function classifyAt(an, frame, sr){
+  const fps = an.fps, n = an.env.length;
+  const atk = (arr, a, b) => { let s = 0, c = 0; for (let i = Math.max(0, a); i < Math.min(n, b); i++){ s += arr[i]; c++; } return c ? s / c : 0; };
+  const p = frame;
+  const aSub = atk(an.eSub, p, p + 3), aLow = atk(an.eLow, p, p + 3),
+        aMid = atk(an.eMid, p, p + 3), aHigh = atk(an.eHigh, p, p + 3);
+  const bSub = atk(an.eSub, p - 6, p - 1), bMid = atk(an.eMid, p - 6, p - 1), bHigh = atk(an.eHigh, p - 6, p - 1);
+  const dSub = Math.max(0, aSub - bSub), dMid = Math.max(0, aMid - bMid), dHigh = Math.max(0, aHigh - bHigh);
+  const tot = dSub + dMid + dHigh + 1e-12;
+  const shSub = dSub / tot, shMid = dMid / tot, shHigh = dHigh / tot;
+  // decay: how much of the high band's attack survives 40-180 ms later
+  const tailHigh = Math.max(0, atk(an.eHigh, p + 5, p + 14) - bHigh);
+  const decayHigh = tailHigh / (dHigh + 1e-12);
+  const lowBody = Math.max(0, aLow - atk(an.eLow, p - 6, p - 1));
+  const strongest = Math.max(shSub, shMid, shHigh);
+  const out = [];
+  const LMIN = { kick: 0.45, hh: 0.45, clap: 0.60 };
+  const primary = shSub >= shMid && shSub >= shHigh ? "kick" : (shHigh >= shMid ? "hh" : "clap");
+  const push = (lane, v) => out.push([lane, Math.max(0.4, Math.min(1, 0.45 + 0.5 * v))]);
+  if ((shSub >= LMIN.kick || primary === "kick") && shSub >= 0.30) push("kick", shSub);
+  if ((shHigh >= LMIN.hh || primary === "hh") && shHigh >= 0.30){
+    push(decayHigh > 0.34 ? "hh_open" : "hh_closed", shHigh);
+  }
+  if ((shMid >= LMIN.clap || primary === "clap") && shMid >= 0.30 && primary !== "kick"){
+    push(lowBody > 0.55 * Math.max(aMid, 1e-12) ? "snare" : "clap", shMid);
+  }
+  if (!out.length) push("hh_closed", 0.4);
+  return out;
+}
+
+/* --- simple RBJ biquad filters: the server band-limits each lane before pitch
+   tracking, and without that the 808's harmonics and the pad hijack the melody --- */
+function biquad(x, f0, Q, type){
+  const w0 = 2 * Math.PI * f0 / this.sr, cw = Math.cos(w0), sw = Math.sin(w0);
+  const alpha = sw / (2 * Q);
+  let b0, b1, b2;
+  if (type === "low"){ b0 = (1 - cw) / 2; b1 = 1 - cw; b2 = b0; }
+  else { b0 = (1 + cw) / 2; b1 = -(1 + cw); b2 = b0; }
+  const a0 = 1 + alpha, a1 = -2 * cw, a2 = 1 - alpha;
+  const out = new Float32Array(x.length);
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  for (let i = 0; i < x.length; i++){
+    const xn = x[i];
+    const yn = (b0 / a0) * xn + (b1 / a0) * x1 + (b2 / a0) * x2 - (a1 / a0) * y1 - (a2 / a0) * y2;
+    x2 = x1; x1 = xn; y2 = y1; y1 = yn;
+    out[i] = yn;
+  }
+  return out;
+}
+function bandLimit(x, sr, fLow, fHigh){
+  const ctxf = { sr };
+  let y = x;
+  if (fHigh) y = biquad.call(ctxf, y, fHigh, 0.707, "low");
+  if (fLow){
+    y = biquad.call(ctxf, y, fLow, 0.707, "high");
+    y = biquad.call(ctxf, y, fLow, 0.707, "high");
+  }
+  return y;
+}
+
+/* --- stage 5: YIN pitch tracking, one lane at a time (band-limited first) --- */
+function trackPitches(x, sr, onProgress, lane){
+  const N = 2048, HOP = 256;
+  const nFrames = Math.max(1, Math.floor((x.length - N) / HOP) + 1);
+  const re = new Float32Array(N), im = new Float32Array(N);
+  const bassM = new Float32Array(nFrames), bassC = new Float32Array(nFrames);
+  const melM = new Float32Array(nFrames), melC = new Float32Array(nFrames);
+  const loud = new Float32Array(nFrames);
+  const isBass = lane !== "melody";
+  const tauBassMin = Math.max(2, Math.floor(sr / 220)), tauBassMax = Math.min(N - 2, Math.floor(sr / 35));
+  const tauMelMin = Math.max(2, Math.floor(sr / 1100)), tauMelMax = Math.min(N - 2, Math.floor(sr / 180));
+  const cmnd = new Float32Array(Math.max(tauBassMax, tauMelMax) + 2);
+  const acf = new Float32Array(N);
+  for (let f = 0; f < nFrames; f++){
+    const off = f * HOP;
+    let m = 0;
+    for (let i = 0; i < N; i++) m += x[off + i];
+    m /= N;
+    let p0 = 0;
+    for (let i = 0; i < N; i++){ const v = x[off + i] - m; re[i] = v; im[i] = 0; p0 += v * v; }
+    loud[f] = Math.sqrt(p0 / N);
+    if (p0 < 1e-9) continue;
+    fftInPlace(re, im);
+    for (let i = 0; i < N; i++){ const a = re[i], b = im[i]; re[i] = a * a + b * b; im[i] = 0; }
+    // inverse FFT (conjugate trick): conj -> forward -> conj -> /N
+    for (let i = 0; i < N; i++) im[i] = -im[i];
+    fftInPlace(re, im);
+    for (let i = 0; i < N; i++) acf[i] = re[i] / N;
+    let run = 0;
+    const tmax = Math.max(tauBassMax, tauMelMax);
+    for (let tau = 0; tau <= tmax + 1; tau++){
+      const d = 2 * (p0 - acf[tau]);
+      run += d;
+      cmnd[tau] = tau === 0 ? 1 : (d * tau) / (run + 1e-12);
+    }
+    const pick = (tmin, tmax2) => {
+      let tau = -1;
+      for (let t = tmin; t < tmax2; t++){
+        if (cmnd[t] < 0.16 && cmnd[t] <= cmnd[t + 1]){ tau = t; break; }
+      }
+      if (tau < 0){
+        let bv = 1e9;
+        for (let t = tmin; t <= tmax2; t++) if (cmnd[t] < bv){ bv = cmnd[t]; tau = t; }
+        if (cmnd[tau] > 0.45) return [0, 0];
+      }
+      if (tau > 0 && tau < tmax + 1){
+        const a = cmnd[tau - 1], b = cmnd[tau], c = cmnd[tau + 1];
+        const den = a - 2 * b + c;
+        if (Math.abs(den) > 1e-12) tau = tau + 0.5 * (a - c) / den;
+      }
+      const f0 = sr / tau;
+      return [f0, Math.max(0, Math.min(1, 1 - cmnd[Math.round(tau)]))];
+    };
+    if (isBass){
+      const [fb, cb] = pick(tauBassMin, tauBassMax);
+      if (fb >= 30 && fb <= 250){ bassM[f] = fb; bassC[f] = cb; }
+    } else {
+      const [fm, cm] = pick(tauMelMin, tauMelMax);
+      if (fm >= 160 && fm <= 1200){ melM[f] = fm; melC[f] = cm; }
+    }
+    if (onProgress && (f & 255) === 0) onProgress(f / nFrames);
+  }
+  return { hop: HOP, sr, bassM, bassC, melM, melC, loud };
+}
+
+/* --- stage 6: frames -> notes --- */
+function framesToNotes(track, which){
+  const { hop, sr } = track;
+  const fr = which === "bass" ? track.bassM : track.melM;
+  const cf = which === "bass" ? track.bassC : track.melC;
+  const minF = which === "bass" ? 35 : 180, maxF = which === "bass" ? 220 : 1100;
+  // the 808 glides for ~35 ms, so the bass lane needs a longer settle window
+  // before its pitch is measured; a shorter one reads the glide, not the note
+  const settle = which === "bass" ? 0.055 : 0.022;
+  const minDur = which === "bass" ? 0.090 : 0.065;
+  const segs = [];
+  let cur = null;
+  const closeSeg = () => {
+    if (!cur) return;
+    const dur = cur.tEnd - cur.t0;
+    if (dur >= minDur && cur.vals.length){
+      const keep = cur.vals.map((v, i) => [v, cur.w[i], cur.t[i]]).filter(x => x[2] - cur.t0 >= settle);
+      const use = keep.length ? keep : cur.vals.map((v, i) => [v, cur.w[i], cur.t[i]]);
+      use.sort((a, b) => a[0] - b[0]);
+      let totW = 0; use.forEach(u => totW += u[1]);
+      let acc = 0, med = use[use.length - 1][0];
+      for (const u of use){ acc += u[1]; if (acc >= totW * 0.5){ med = u[0]; break; } }
+      let dom = 0; use.forEach(u => { if (Math.abs(u[0] - med) <= 0.5) dom += u[1]; });
+      dom = dom / (totW + 1e-12);
+      if (dom >= 0.45) segs.push({ t0: cur.t0, t1: cur.tEnd, midi: Math.round(med), dom });
+    }
+    cur = null;
+  };
+  for (let i = 0; i < fr.length; i++){
+    const f0 = fr[i], c = cf[i], t = (i * hop) / sr;
+    let midi = null;
+    if (f0 > 0 && c > 0.25){
+      const m = Math.round(69 + 12 * Math.log2(f0 / 440));
+      if (m >= 21 && m <= 108) midi = m;
+    }
+    if (midi === null){ closeSeg(); continue; }
+    const ref = cur ? cur.vals[cur.vals.length - 1] : null;
+    if (!cur || (ref !== null && Math.abs(midi - ref) > 0.75)){
+      closeSeg();
+      cur = { t0: t, tEnd: t, vals: [midi], w: [Math.max(1e-9, track.loud[i] * c * c)], t: [t] };
+    } else {
+      cur.vals.push(midi); cur.w.push(Math.max(1e-9, track.loud[i] * c * c));
+      cur.t.push(t); cur.tEnd = t;
+    }
+  }
+  closeSeg();
+  // merge same-pitch dropouts, drop very short notes
+  const merged = [];
+  segs.sort((a, b) => a.t0 - b.t0).forEach(s => {
+    const last = merged[merged.length - 1];
+    if (last && last.midi === s.midi && s.t0 - last.t1 <= 0.75 * (60 / 140 / 4)) { last.t1 = Math.max(last.t1, s.t1); return; }
+    merged.push({ ...s });
+  });
+  return merged.filter(s => s.t1 - s.t0 >= 0.055);
+}
+
+/* --- orchestrator --- */
+function localTranscribe(pcm, sr, opts, buildSMFfn, onProgress){
+  const t0 = performance.now ? performance.now() : Date.now();
+  const mode = opts.mode || "auto", grid = opts.grid || 16;
+  const sens = opts.sensitivity != null ? opts.sensitivity : 0.5;
+  const quant = opts.quantize != null ? opts.quantize : 1;
+  const report = (p, label) => { if (onProgress) onProgress(p, label); };
+
+  report(0.02, "Analysing spectrum…");
+  const an = analyseBands(pcm, sr, p => report(0.05 + p * 0.45, "Analysing spectrum…"));
+  const fps = an.fps;
+
+  let bpm, offset, conf;
+  if (opts.bpmOverride && opts.bpmOverride > 20){
+    bpm = opts.bpmOverride;
+    const t = detectTempoLocal(an.env, fps, an.frameOffset);
+    offset = t.offset; conf = 1;
+  } else {
+    const t = detectTempoLocal(an.env, fps, an.frameOffset);
+    bpm = t.bpm; offset = t.offset; conf = t.conf;
+  }
+  const stepS = (60 / bpm) / (grid / 4);
+  const barS = (60 / bpm) * 4;
+  const totalBars = Math.max(1, Math.ceil((pcm.length / sr - offset) / barS));
+  const tracks = [];
+  const stats = { onsets: 0, notes: 0, bpm: Math.round(bpm * 100) / 100, confidence: Math.round(conf * 100) / 100,
+                  bars: totalBars, duration: Math.round((pcm.length / sr) * 100) / 100,
+                  engine: "browser" };
+
+  // ---- pitched lanes first (their onsets also mask melodic hits out of the drum lanes)
+  const pitchedTracks = [];
+  if (mode === "auto" || mode === "melody"){
+    report(0.55, "Tracking bass line…");
+    const bassSig = bandLimit(pcm, sr, null, 320);                  // keep the low end
+    const ptBass = trackPitches(bassSig, sr, p => report(0.55 + p * 0.18, "Tracking bass line…"), "bass");
+    report(0.74, "Tracking melody…");
+    const melSig = bandLimit(pcm, sr, 250, 2600);                   // drop the 808 and the air
+    const ptMel = trackPitches(melSig, sr, p => report(0.74 + p * 0.18, "Tracking melody…"), "melody");
+    const envAt = (t) => {
+      const fr = Math.round((t - an.frameOffset) * fps);
+      let v = 0;
+      for (let j = Math.max(0, fr - 3); j < Math.min(an.env.length, fr + 4); j++) v = Math.max(v, an.env[j]);
+      return v;
+    };
+    const peak = Math.max(1e-9, maxOf(an.env));
+    [["Bass", "bass", 1, 0.10, ptBass], ["Melody", "melody", 2, 0.12, ptMel]].forEach(([name, which, chan, gate, pt]) => {
+      const segs = framesToNotes(pt, which).filter(s => envAt(s.t0) / peak >= gate);
+      const notes = [];
+      const seen = new Set();
+      segs.forEach(s => {
+        let st = Math.round(((s.t0 - offset) / stepS)) * stepS + offset;
+        if (quant < 1) st = s.t0 + (st - s.t0) * quant;
+        let en = Math.round(((s.t1 - offset) / stepS)) * stepS + offset;
+        if (quant < 1) en = s.t1 + (en - s.t1) * quant;
+        const startStep = Math.round((st - offset) / stepS);
+        if (seen.has(startStep)) return;
+        seen.add(startStep);
+        const len = Math.max(1, Math.round((en - st) / stepS));
+        notes.push({ step: startStep, pitch: s.midi, len, vel: Math.max(0.35, Math.min(0.95, 0.45 + s.dom * 0.5)) });
+      });
+      notes.sort((a, b) => a.step - b.step);
+      if (notes.length){
+        pitchedTracks.push({ name, kind: "pitched", channel: chan, notes });
+        tracks.push({ name, kind: "pitched", channel: chan, notes });
+        stats.notes += notes.length;
+      }
+    });
+  }
+
+  // ---- drums
+  if (mode === "auto" || mode === "drums"){
+    report(0.93, "Classifying drum hits…");
+    // Hybrid, mirroring the server engine: the combined envelope is reliable for
+    // kick/clap but drops a quiet hat that lands under a loud kick, so the high band
+    // is peak-picked separately and its onsets are added where no hat exists yet.
+    const peaks = pickPeaksLocal(an.env, fps, sens);
+    const peaksHigh = an.flux && an.flux.high
+      ? pickPeaksLocal(an.flux.high, fps, sens, 0.045, 0.24) : [];
+    const melodic = pitchedTracks.flatMap(t => t.notes.map(n => n.step * stepS + offset));
+    const lanes = { kick: [], snare: [], clap: [], hh_closed: [], hh_open: [] };
+    const used = {};
+    const hatSteps = {};
+    const addHit = (lane, step, vel) => {
+      const key = lane + ":" + step;
+      if (used[key] === undefined || vel > used[key]) used[key] = vel;
+      if (lane === "hh_closed" || lane === "hh_open") hatSteps[step] = true;
+    };
+    const nearMelodic = t => {
+      for (const mt of melodic) if (Math.abs(mt - t) < 0.030) return true;
+      return false;
+    };
+
+    peaks.forEach(p => {
+      const t = p / fps + an.frameOffset;
+      if (t < 0) return;
+      const tot = an.eSub[p] + an.eMid[p] + an.eHigh[p] + 1e-12;
+      const shSub = an.eSub[p] / tot, shHigh = an.eHigh[p] / tot;
+      if (!nearMelodic(t) === false && shSub > 0.45 && shHigh < 0.30) return;   // 808 note
+      const step = Math.round((t - offset) / stepS);
+      if (step < 0) return;
+      classifyAt(an, p, sr).forEach(([lane, vel]) => {
+        if (lane === "kick" && attackRatioLocal(an, p, "sub") < 0.32) return;
+        if (lane === "clap" && attackRatioLocal(an, p, "mid") < 0.20) return;
+        addHit(lane, step, vel);
+      });
+    });
+
+    peaksHigh.forEach(p => {
+      const t = p / fps + an.frameOffset;
+      if (t < 0) return;
+      const step = Math.round((t - offset) / stepS);
+      if (step < 0 || hatSteps[step]) return;            // a hat is already recorded here
+      const tot = an.eSub[p] + an.eMid[p] + an.eHigh[p] + 1e-12;
+      const shHigh = an.eHigh[p] / tot;
+      if (shHigh < 0.30) return;
+      const tail = bandWinMean(an.eHigh, p + 5, p + 14);
+      const decay = tail / (an.eHigh[p] + 1e-12);
+      addHit(decay > 0.34 ? "hh_open" : "hh_closed", step,
+             Math.max(0.35, Math.min(0.9, 0.45 + 0.4 * shHigh)));
+    });
+
+    stats.onsets = peaks.length + peaksHigh.length;
+    const GM = { kick: [36, "Kick"], snare: [38, "Snare"], clap: [39, "Clap"],
+                 hh_closed: [42, "Hh Closed"], hh_open: [46, "Hh Open"] };
+    Object.keys(lanes).forEach(lane => lanes[lane] = []);
+    Object.entries(used).forEach(([key, vel]) => {
+      const i = key.indexOf(":");
+      const lane = key.slice(0, i), step = +key.slice(i + 1);
+      lanes[lane].push({ step, vel });
+    });
+    ["kick", "snare", "clap", "hh_closed", "hh_open"].forEach(lane => {
+      const arr = lanes[lane].sort((a, b) => a.step - b.step);
+      if (!arr.length) return;
+      const [pitch, name] = GM[lane];
+      const notes = arr.map(o => ({ step: o.step, pitch, len: 1, vel: o.vel }));
+      tracks.push({ name, kind: "drums", channel: 9, notes });
+      stats.notes += notes.length;
+    });
+  }
+
+  // ---- render the MIDI file
+  const ordered = ["Bass", "Melody", "Kick", "Snare", "Clap", "Hh Closed", "Hh Open", "Pad"];
+  tracks.sort((a, b) => ordered.indexOf(a.name) - ordered.indexOf(b.name));
+  const bytes = buildSMFfn(tracks, bpm, 480, grid);
+  const dt = ((performance.now ? performance.now() : Date.now()) - t0) / 1000;
+  stats.analyzed_s = Math.round(dt * 10) / 10;
+  report(1, "Done.");
+  return { bpm: Math.round(bpm * 1000) / 1000, offset: Math.round(offset * 1e4) / 1e4,
+           conf: Math.round(conf * 1000) / 1000, grid, stats, tracks, bytes };
+}
+function maxOf(a){ let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, a[i]); return m; }
+function bytesToBase64(bytes){
+  let s = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk){
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(s);
+}
+
+/* ======================================================================
+   9. wiring
+   ====================================================================== */
+function refreshAll(){ buildTracks(); }
+$("#bpm").oninput = e => { state.bpm = clamp(parseFloat(e.target.value) || 140, 40, 220); };
+$("#bars").onchange = e => { state.bars = parseInt(e.target.value, 10); refreshAll(); };
+$("#grid").onchange = e => {
+  const g = parseInt(e.target.value, 10), old = state.grid;
+  // rescale existing steps so changing grid doesn't destroy the pattern
+  Object.values(state.tracks).forEach(tr => {
+    const m = new Map();
+    tr.steps.forEach((n, s) => m.set(Math.round(s * g / old), n));
+    tr.steps = m;
+  });
+  state.grid = g; refreshAll();
+};
+$("#swing").oninput = e => { state.swing = parseFloat(e.target.value); $("#swingv").textContent = Math.round(state.swing * 100) + "%"; };
+$("#vol").oninput = e => { if (master) master.gain.value = parseFloat(e.target.value); };
+$("#quant").oninput = e => { $("#qv").textContent = Math.round(e.target.value * 100) + "%"; };
+$("#sens").oninput = e => { $("#sv").textContent = Math.round(e.target.value * 100) + "%"; };
+$("#halfBtn").onclick = () => { const v = parseFloat($("#a2mBpm").value); if (v > 0) $("#a2mBpm").value = (v / 2).toFixed(1); };
+$("#dblBtn").onclick = () => { const v = parseFloat($("#a2mBpm").value); if (v > 0) $("#a2mBpm").value = (v * 2).toFixed(1); };
+
+$$(".tab").forEach(b => b.onclick = () => {
+  $$(".tab").forEach(x => x.classList.toggle("on", x === b));
+  ["seq", "a2m", "help"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+});
+
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input, select, textarea")) return;
+  if (e.code === "Space"){ e.preventDefault(); state.playing ? stopPlay() : startPlay(); return; }
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= TRACK_DEFS.length){ state.sel = TRACK_DEFS[n - 1].id; refreshAll(); return; }
+  if (e.key === "ArrowUp" || e.key === "ArrowDown"){
+    const td = TRACK_DEFS.find(t => t.id === state.sel);
+    if (!td || td.type !== "pitch") return;
+    const d = e.key === "ArrowUp" ? 1 : -1;
+    state.tracks[td.id].steps.forEach(n => n.pitch = clamp(n.pitch + d, 24, 96));
+    refreshAll(); e.preventDefault();
+  }
+});
+
+/* boot */
+resetTracks();
+buildTracks();
+wireGrid();
+wireDrop();
+wireDemos();
+loadPreset("trap");
+</script>
+</body>
+</html>

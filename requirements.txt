@@ -1,0 +1,7 @@
+# BEATFORGE
+# The web app itself needs nothing: beatforge.html contains its own sequencer,
+# renderer and transcription engine, so it runs by just opening the file.
+# These are only needed for the optional Python engine (server.py) and the
+# transcription benchmark (bench.py).
+numpy>=1.24
+scipy>=1.10
