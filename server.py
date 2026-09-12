@@ -21,7 +21,7 @@ import sys
 import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 
 import numpy as np
 from scipy.signal import butter, sosfilt
@@ -800,9 +800,27 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/", "/index.html", "/beatforge.html"):
             return self._file(os.path.join(ROOT, "beatforge.html"), "text/html; charset=utf-8")
         if path.startswith("/demo/"):
-            safe = os.path.normpath(path).lstrip("/")
-            return self._file(os.path.join(ROOT, safe), "audio/wav")
+            return self._demo(path)
         return self._send(404, json.dumps({"error": "not found"}))
+
+    def _demo(self, path):
+        """Serve demo audio, confined to <ROOT>/demo.
+
+        Only the last path segment is used, so '..' cannot walk out of demo/ and reach
+        the rest of the repo (server.py, .git/config, ...); the resolved path is then
+        checked to really live inside demo/ before anything is read.
+        """
+        demo_dir = os.path.realpath(os.path.join(ROOT, "demo"))
+        name = os.path.basename(unquote(path))
+        target = os.path.realpath(os.path.join(demo_dir, name))
+        try:
+            inside = os.path.commonpath([demo_dir, target]) == demo_dir
+        except ValueError:                       # different drives on Windows
+            inside = False
+        if (name != os.path.basename(name) or not name.lower().endswith(".wav")
+                or not inside or not os.path.isfile(target)):
+            return self._send(404, json.dumps({"error": "not found"}))
+        return self._file(target, "audio/wav")
 
     def _file(self, path, ctype):
         if not os.path.isfile(path):

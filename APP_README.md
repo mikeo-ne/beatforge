@@ -13,8 +13,7 @@ No accounts, no cloud, no sample packs. Everything runs locally.
   either one.
 
 ```
-cd site
-python3 server.py          # then open http://localhost:8000
+python3 server.py          # from the repo root, then open http://localhost:8000
 ```
 
 ---
@@ -138,9 +137,12 @@ half-time beats — that's what the ×2 / ÷2 buttons and the manual tempo box a
 | File | What it is |
 |---|---|
 | `beatforge.html` | the whole app — one self-contained file, no build step, no external assets |
+| `index.html` | redirects the site root to `beatforge.html` (for GitHub Pages / static hosts) |
 | `server.py` | HTTP server + transcription engine (stdlib + numpy/scipy only) |
+| `local-engine.js` | source of the in-browser analyser, inlined verbatim into `beatforge.html` |
 | `bench.py` | accuracy benchmark against the known arrangement |
 | `demo/*.wav` | demo audio (drum loop, melody, 808 bass, full beat) for the one-click demos |
+| `tests/` | the suite — `sh tests/run-all.sh` |
 
 ### API
 ```
@@ -164,6 +166,9 @@ POST /api/audio2midi         body: raw little-endian float32 mono PCM
 - Hosted, sandboxed, or opened straight off disk, **all three tabs work**: sequencer → MIDI, audio →
   MIDI, and WAV/MP3 render. The Python server is an accuracy upgrade for bass and melody, not a
   requirement for any feature.
-- The `beat/midi/*.mid`, `stems/*.wav` and `beat.wav` from the “Midnight Kampala” beat generator work
-  nicely as inputs — load `stems/melody.wav` into the transcriber and it hands the line back as
-  editable MIDI. (Run `python3 beat/make_beat.py` first; the rendered audio is gitignored.)
+- The one-click demos are cut from the “Midnight Kampala” beat this app grew out of; `demo/melody.wav`
+  and `demo/bass.wav` are isolated stems, which is why they transcribe better than `demo/full-beat.wav`.
+  Your own stems work the same way — the four demo files are 13.7 s (27.4 s for the full beat) of
+  44.1 kHz mono at 140 BPM if you want to compare results against the numbers above.
+- `/demo/<file>` only ever serves `.wav` files inside `demo/`; `..` and encoded separators are refused
+  with a 404 (`tests/server-engine.py` asserts this).

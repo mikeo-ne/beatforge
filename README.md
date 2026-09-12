@@ -3,16 +3,17 @@
 **Make MIDI for beat production · turn audio into MIDI · render straight to audio.**
 
 A single self-contained web app — no build step, no dependencies, no accounts, no cloud. Open
-`beatforge/beatforge.html` in a browser and everything works: an 18-genre step sequencer that exports
+`beatforge.html` in a browser and everything works: an 18-genre step sequencer that exports
 MIDI, an in-browser audio→MIDI transcriber, and a WAV/MP3 renderer.
 
-The repo also contains **the beat generator this grew out of** (`beat/`) — the code that produced the
-"Midnight Kampala" beat, whose stems make good test material for the transcriber.
+```
+open beatforge.html          # the whole app: sequencer, transcriber, renderer
+python3 server.py            # optional: http://localhost:8000 + the more accurate Python analyser
+```
 
-```
-open beatforge/beatforge.html          # the whole app: sequencer, transcriber, renderer
-cd beatforge && python3 server.py      # optional: adds the more accurate Python analyser
-```
+Hosted version: this repo publishes itself to GitHub Pages (`.github/workflows/static.yml`), where
+`index.html` redirects to the app. With no server behind it, audio→MIDI runs on the in-browser
+engine — the demo buttons work there too, because `demo/*.wav` is published alongside the page.
 
 ---
 
@@ -105,7 +106,9 @@ genuinely ambiguous for half-time material, so there's a manual tempo field and 
 ## Tests
 
 ```sh
-cd beatforge && sh tests/run-all.sh
+sh tests/run-all.sh          # node + python3; run from anywhere
+npm install                  # optional: jsdom, which turns on the real-page DOM test
+pip install -r requirements.txt   # optional: numpy + scipy, for the Python engine tests
 ```
 
 | Test | What it asserts |
@@ -115,47 +118,64 @@ cd beatforge && sh tests/run-all.sh
 | `tests/wav-render.cjs` | offline render produces real PCM through the synth voices and master chain |
 | `tests/mp3-path.cjs` | WebCodecs plumbing: planar channel split, frame chunking, MPEG sync word |
 | `tests/browser-engine.cjs` | the in-browser analyser end to end (tempo, lanes, MIDI bytes) |
+| `tests/dom.cjs` | the real page in jsdom over real HTTP: genre buttons, grid editing (paint, accent, right-click erase, pitch drag), transport, export, WAV render, and audio→MIDI both with and without the Python server |
+| `tests/server-engine.py` | the Python analyser on the committed demo audio: tempo, drum lanes, pitched lanes, SMF structure (note-on/note-off pairing, channel 10, tempo meta) and the HTTP API, including path-traversal attempts on `/demo/` |
+| `tests/check-inline.py` | `local-engine.js` is still byte-for-byte the analyser inlined in `beatforge.html` |
+| `tests/extract-app.py` | pulls the app's `<script>` block into `build/app.js` so Node can run it headless |
 | `bench.py` | transcription accuracy against the reference arrangement (skips cleanly if the reference audio isn't present) |
 
-CI runs the whole suite on every push — see `.github/workflows/tests.yml`.
+Everything except `bench.py` runs from files that are in the repo, so a fresh clone verifies the whole
+app. Optional dependencies never fail the suite: each test that needs one prints `SKIPPED` and exits 0.
+
+CI runs the suite twice on every push — once with jsdom + numpy installed, once with neither — see
+`.github/workflows/tests.yml`.
 
 ---
 
 ## Repo layout
 
 ```
-beatforge/                 the app
-  beatforge.html           everything: UI, sequencer, synth, renderer, in-browser analyser
-  server.py                optional Python engine: HTTP server + transcription
-  local-engine.js          source for the in-browser analyser (inlined into the HTML)
-  bench.py                 transcription benchmark
-  tests/                   the suite + a DOM/AudioContext shim for headless Node runs
-  demo/                    demo audio for the one-click demos
-
-beat/                      the beat generator this started as
-  make_beat.py             synthesises, arranges, mixes and masters a beat from scratch
-  export_midi.py           writes the arrangement as MIDI (one file per instrument)
-  LOGIC_PRO_GUIDE.md       how to rebuild the beat inside Logic Pro
-  midi/  beat.mid          example MIDI output
+beatforge.html           the app: UI, sequencer, synth, renderer, in-browser analyser
+index.html               redirects the site root to beatforge.html (GitHub Pages)
+server.py                optional Python engine: HTTP server + transcription
+local-engine.js          source for the in-browser analyser (inlined into the HTML)
+bench.py                 transcription benchmark against the reference arrangement
+demo/                    demo audio for the one-click demos (also transcription test material)
+tests/                   the suite: extract-app.py, shim.cjs, *.cjs, *.py, run-all.sh
+requirements.txt         numpy + scipy, for server.py and bench.py only
+package.json             jsdom, for tests/dom.cjs only (a dev dependency, not the app's)
 ```
 
-## Running the beat generator
+`build/app.js` is generated by the test suite and gitignored.
+
+## The accuracy benchmark
+
+`bench.py` scores the transcriber against a known 140 BPM arrangement — 42 s of audio: `beat.wav`
+plus `stems/{kick,clap,hat,melody,808}.wav`. That audio is large and is **not** in this repo, so on a
+fresh clone the benchmark prints what it is missing and exits 0. The numbers in this README were
+measured with it.
+
+To reproduce them, point the benchmark at a directory holding those files:
 
 ```sh
-cd beat && python3 make_beat.py     # ~3.5 min -> beat.wav + stems/ + midi/
+BEATFORGE_REF=/path/to/beat python3 bench.py
 ```
 
-It renders a 32-bar beat at 140 BPM in A minor — 808 with glide, kick/clap/hats, a bell melody, pads,
-vinyl texture, reverb and a limited master chain — then `export_midi.py` writes the parts as MIDI.
-The WAV output is gitignored; regenerate it rather than cloning 70 MB of audio. See
-[`beat/LOGIC_PRO_GUIDE.md`](beat/LOGIC_PRO_GUIDE.md) for the rebuild recipe.
+The engine itself is still verified without that audio: `tests/server-engine.py` runs both analysers
+over the committed `demo/*.wav` (cut from the same beat) and asserts tempo, lanes and MIDI structure.
 
 ---
 
 ## Requirements
 
-The app needs only a modern browser. `numpy` + `scipy` (`requirements.txt`) are needed for the optional
-Python engine, the benchmark, and the beat generator.
+The app needs only a modern browser — `beatforge.html` has no build step and no dependencies.
+
+| Want | Install |
+|---|---|
+| The optional Python analyser (`server.py`) | `pip install -r requirements.txt` (numpy + scipy) |
+| The accuracy benchmark (`bench.py`) | numpy + scipy, plus reference audio (`BEATFORGE_REF`) |
+| The real-page DOM test (`tests/dom.cjs`) | `npm install` (jsdom, a dev dependency) |
+| Everything else in the suite | node + python3 |
 
 ## License
 

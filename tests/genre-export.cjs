@@ -28,7 +28,7 @@ global.OfflineAudioContext = function(ch, len, sr){
   };
 };
 
-const code = fs.readFileSync("../build/app.js","utf8") +
+const code = fs.readFileSync(require("path").join(__dirname, "..", "build", "app.js"),"utf8") +
   "\n;module.exports={GENRES,loadPreset,state,TRACK_DEFS,totalSteps,buildSMF,encodeWav,renderPatternBuffer,scalePitches,SCALES};";
 const m = new module.constructor(); m._compile(code, "/tmp/g.js");
 const api = m.exports;

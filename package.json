@@ -1,0 +1,14 @@
+{
+  "name": "beatforge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Test-only dependencies for BEATFORGE. The app itself (beatforge.html) has no dependencies and no build step -- these exist purely so the suite can drive the real page in a DOM.",
+  "scripts": {
+    "test": "sh tests/run-all.sh",
+    "test:dom": "node tests/dom.cjs",
+    "serve": "python3 server.py"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  }
+}

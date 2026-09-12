@@ -44,7 +44,7 @@ global.OfflineAudioContext = function(ch, len, sr){
   };
 };
 
-const code = fs.readFileSync("../build/app.js","utf8") + "\n;module.exports={state,renderPatternBuffer,encodeWav,GENRES,loadPreset,TRACK_DEFS,totalSteps,buildSMF};";
+const code = fs.readFileSync(require("path").join(__dirname, "..", "build", "app.js"),"utf8") + "\n;module.exports={state,renderPatternBuffer,encodeWav,GENRES,loadPreset,TRACK_DEFS,totalSteps,buildSMF};";
 const m = new module.constructor(); m._compile(code, "/tmp/wavt.js");
 const api = m.exports;
 global.document.querySelector("#vol").value = "0.85";

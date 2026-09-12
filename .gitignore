@@ -1,0 +1,19 @@
+# build output of the test suite: beatforge.html's <script> block, extracted by
+# tests/extract-app.py so Node can run the app headless. Regenerated on every run.
+build/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# rendered audio from the optional beat generator / renders (large, regenerate instead)
+beat.wav
+stems/
+*.mp3
+
+# os / editor
+.DS_Store
+Thumbs.db
+node_modules/

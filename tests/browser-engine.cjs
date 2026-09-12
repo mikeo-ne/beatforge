@@ -45,7 +45,7 @@ global.document.querySelector = s => {
 global.performance = { now: () => Date.now() };
 
 const fs2 = require("fs");
-const code = fs2.readFileSync("../build/app.js","utf8") + "\n;module.exports={transcribeFile,state,localTranscribe,buildSMF};";
+const code = fs2.readFileSync(require("path").join(__dirname, "..", "build", "app.js"),"utf8") + "\n;module.exports={transcribeFile,state,localTranscribe,buildSMF};";
 const m = new module.constructor();
 m._compile(code, "/tmp/full.js");
 const api = m.exports;

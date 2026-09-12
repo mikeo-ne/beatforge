@@ -24,7 +24,7 @@ global.AudioEncoder = function(opts){
 global.AudioEncoder.isConfigSupported = async cfg => ({ supported: cfg.codec === "mp3" });
 
 const m = new module.constructor();
-m._compile(fs.readFileSync("../build/app.js","utf8") + "\n;module.exports={encodeMp3};", "/tmp/m3.js");
+m._compile(fs.readFileSync(require("path").join(__dirname, "..", "build", "app.js"),"utf8") + "\n;module.exports={encodeMp3};", "/tmp/m3.js");
 const { encodeMp3 } = m.exports;
 
 // a 1 second stereo buffer with distinguishable channels
