@@ -231,12 +231,17 @@ const bytes = async blob => new Uint8Array(await blob.arrayBuffer());
 const ascii = (b, i, j) => String.fromCharCode(...b.slice(i, j));
 
 /* ------------------------------------------------------------------ servers */
-function staticServer() {
+/* A static file server with no API behind it, mounted under a sub-path -- i.e. exactly
+   how GitHub Pages serves this repo (https://user.github.io/beatforge/). Relative URLs
+   in the app have to survive that, and audio -> MIDI has to fall back to the browser
+   engine when api/audio2midi 404s. */
+function staticServer(prefix = "beatforge") {
   const types = { ".html": "text/html; charset=utf-8", ".wav": "audio/wav", ".js": "text/javascript",
                   ".css": "text/css", ".json": "application/json" };
   const srv = http.createServer((req, res) => {
-    const u = decodeURIComponent(req.url.split("?")[0]);
-    let rel = u === "/" ? "index.html" : u.replace(/^\/+/, "");
+    let u = decodeURIComponent(req.url.split("?")[0]);
+    if (prefix) u = u.replace(new RegExp("^/" + prefix + "(?=/|$)"), "") || "/";
+    const rel = u === "/" ? "index.html" : u.replace(/^\/+/, "");
     const p = path.join(ROOT, rel);
     if (!p.startsWith(ROOT) || !fs.existsSync(p) || !fs.statSync(p).isFile()) {
       res.writeHead(404, { "Content-Type": "text/plain" }); return res.end("not found");
@@ -244,7 +249,8 @@ function staticServer() {
     res.writeHead(200, { "Content-Type": types[path.extname(p)] || "application/octet-stream" });
     res.end(fs.readFileSync(p));
   });
-  return new Promise(r => srv.listen(0, "127.0.0.1", () => r({ srv, port: srv.address().port })));
+  return new Promise(r => srv.listen(0, "127.0.0.1",
+    () => r({ srv, port: srv.address().port, prefix })));
 }
 
 function pythonAvailable() {
@@ -611,7 +617,8 @@ async function transcribeChecks(app, expectServer) {
   console.log("DOM / UI test (jsdom) — real page, real HTTP, real event wiring");
 
   const stat = await staticServer();
-  const staticUrl = `http://127.0.0.1:${stat.port}/beatforge.html`;
+  const staticUrl = `http://127.0.0.1:${stat.port}/${stat.prefix}/beatforge.html`;
+  notes.push(`static host mounted at /${stat.prefix}/ (GitHub Pages shape), no API behind it`);
 
   let app = await boot(staticUrl);
   await sequencerChecks(app);
