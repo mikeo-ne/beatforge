@@ -2,7 +2,7 @@
 
 A local web app for beat production: **program beats → export MIDI**, and **turn audio into actual MIDI**.
 
-No accounts, no cloud, no sample packs. Everything runs locally.
+No accounts, no cloud, no sample packs required. Your own sounds can be loaded locally; nothing is uploaded by the kit. Everything runs locally.
 
 **Two ways to use it:**
 - **Download `beatforge.html` and open it.** Both halves work with no install and no server — the step
@@ -46,7 +46,16 @@ python3 server.py          # from the repo root, then open http://localhost:8000
   sometimes not, in which case it says so instead of failing quietly.
 - **Export .MID** → Standard MIDI File, type 1, 480 PPQ. Drums go to channel 10 with General MIDI
   note numbers (kick 36, snare 38, clap 39, closed hat 42, open hat 46), so it drops onto a
-  Drum Kit Designer track in Logic Pro and lines up immediately
+  Drum Kit Designer track in Logic Pro and lines up immediately. **Logic / DAW MIDI** provides a
+  clearly named copy for dragging into Logic Pro, Ableton, FL Studio or Reaper.
+- **Kit — your own one-shots** → drop audio onto a track row, kit row or the kit panel, or tap
+  **Choose sound** on a phone/tablet. WAV, MP3, M4A, OGG, AIFF and WebM work when the browser can decode
+  them. Each lane has its own sample, audition, gain, tuning, pitch-follow, one-shot/gated, reverse,
+  trim and timing-shift controls. Loading is additive and does not place or remove grid steps; clear
+  a slot to bring that synth voice back. **Clear all** does not clear samples.
+- **Humanize performance** → deterministic timing, velocity, length, pitch and expression feel. It uses
+  the same seed for every loop and caps timing drift at 45% of one step. Enable **Write feel into MIDI**
+  when you want the timing/velocity/length changes exported; otherwise MIDI stays quantised.
 
 ### 2. Audio → MIDI
 Drop in (or click a demo) a drum loop, bassline, melody or full beat. It returns a multi-track MIDI
@@ -136,7 +145,7 @@ half-time beats — that's what the ×2 / ÷2 buttons and the manual tempo box a
 
 | File | What it is |
 |---|---|
-| `beatforge.html` | the whole app — one self-contained file, no build step, no external assets |
+| `beatforge.html` | the whole app — one self-contained file: sequencer, kit, humanize, renderer and analyser |
 | `index.html` | redirects the site root to `beatforge.html` (for GitHub Pages / static hosts) |
 | `server.py` | HTTP server + transcription engine (stdlib + numpy/scipy only) |
 | `local-engine.js` | source of the in-browser analyser, inlined verbatim into `beatforge.html` |
@@ -155,16 +164,34 @@ POST /api/audio2midi         body: raw little-endian float32 mono PCM
                              returns: {bpm, offset, conf, stats, tracks[], midi_b64}
 ```
 
+## Verification
+
+Run `bash tests/run-all.sh` after installing `npm install` and
+`pip install --break-system-packages -r requirements.txt`. The suite covers genre rhythms
+(`genre-rhythms.cjs`), all genre exports (`genre-export.cjs`), Logic/DAW MIDI parity
+(`midi-parity.cjs`), kit isolation and deterministic humanize (`kit-humanize.cjs`), WAV
+rendering (`wav-render.cjs`), MP3/WebCodecs (`mp3-path.cjs`), the browser transcriber
+(`browser-engine.cjs`), the real responsive page and sub-path fallback (`dom.cjs`), the
+numpy/scipy API and traversal-safe demos (`server-engine.py`), inline analyser integrity
+(`check-inline.py`), extraction/syntax (`extract-app.py`), and the optional reference benchmark
+(`bench.py`, which correctly skips without its uncommitted reference audio).
+
 ---
+
+## Ownership
+
+© 2026 Mike 1ne, Sound Engineer · 7H Music Group. The same attribution is embedded in exported MIDI
+conductor metadata. Source code is MIT licensed; see `LICENSE`.
 
 ## Notes
 
 - Analysis caps at the first 90 seconds; longer files are truncated (reported in the response).
-- Audio never leaves your machine. With the server running, the POST goes to `localhost` on the same
-  origin; with the page open as a plain file, nothing is uploaded at all — the built-in analyser reads
-  the samples in the page's own memory.
+- Audio and kit samples are decoded locally. With the server running, the optional audio→MIDI POST goes to
+  the same origin for analysis; with the page open as a plain file, nothing is uploaded and the built-in
+  analyser reads the samples in the page's own memory.
 - Hosted, sandboxed, or opened straight off disk, **all three tabs work**: sequencer → MIDI, audio →
-  MIDI, and WAV/MP3 render. The Python server is an accuracy upgrade for bass and melody, not a
+  MIDI, and WAV/MP3 render. The kit uses a file picker on touch devices and drag/drop where supported;
+  buttons have touch-sized targets and the sequencer remains horizontally scrollable on narrow screens. The Python server is an accuracy upgrade for bass and melody, not a
   requirement for any feature.
 - The one-click demos are cut from the “Midnight Kampala” beat this app grew out of; `demo/melody.wav`
   and `demo/bass.wav` are isolated stems, which is why they transcribe better than `demo/full-beat.wav`.

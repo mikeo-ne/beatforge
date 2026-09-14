@@ -26,7 +26,7 @@ python3 "$HERE/check-inline.py"
 
 # tests read build/app.js relative to their own directory
 cd "$HERE"
-for t in genre-rhythms genre-export wav-render mp3-path browser-engine; do
+for t in genre-rhythms genre-export midi-parity kit-humanize wav-render mp3-path browser-engine; do
   printf '\n== %s ==\n' "$t"
   node "$t.cjs"
 done

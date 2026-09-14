@@ -634,6 +634,8 @@ def write_smf(tracks, bpm, ppq=480, name="BEATFORGE"):
     # conductor track: tempo + time signature + name
     t0 = bytearray()
     t0 += b"\x00\xff\x03" + bytes([len(name)]) + name.encode()
+    copyright_text = b"Copyright (c) Mike 1ne, Sound Engineer / 7H Music Group"
+    t0 += b"\x00\xff\x02" + bytes([len(copyright_text)]) + copyright_text
     us_per_beat = int(round(60_000_000 / bpm))
     t0 += b"\x00\xff\x51\x03" + struct.pack(">I", us_per_beat)[1:]
     t0 += b"\x00\xff\x58\x04\x04\x02\x18\x08"
@@ -642,10 +644,18 @@ def write_smf(tracks, bpm, ppq=480, name="BEATFORGE"):
 
     for tname, chan, notes in tracks:
         ev = []
-        for (start, pitch, dur, vel) in notes:
-            ev.append((start, 0, int(pitch), int(np.clip(vel, 1, 127)), chan))
-            ev.append((start + max(dur, 1e-4), 1, int(pitch), 0, chan))
-        ev.sort(key=lambda e: (e[0], e[1]))
+        prepared = sorted([(float(start), int(pitch), float(dur), vel) for start, pitch, dur, vel in notes],
+                          key=lambda x: x[0])
+        for ix, (start, pitch, dur, vel) in enumerate(prepared):
+            if any(x[0] == start and x[1] == pitch for x in prepared[:ix]):
+                continue
+            later = next((x[0] for x in prepared[ix + 1:] if x[0] > start and x[1] == pitch), None)
+            if later is not None and later <= start:
+                continue
+            length = max(1e-4, min(max(dur, 1e-4), later - start if later is not None else max(dur, 1e-4)))
+            ev.append((start, 0, pitch, int(np.clip(vel, 1, 127)), chan))
+            ev.append((start + length, 1, pitch, 0, chan))
+        ev.sort(key=lambda e: (e[0], -e[1]))
         buf = bytearray()
         buf += b"\x00\xff\x03" + bytes([len(tname) & 0x7F]) + tname.encode()[:127]
         last = 0.0

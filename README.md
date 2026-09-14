@@ -2,9 +2,10 @@
 
 **Make MIDI for beat production · turn audio into MIDI · render straight to audio.**
 
-A single self-contained web app — no build step, no dependencies, no accounts, no cloud. Open
+A single self-contained web app — no build step, no runtime dependencies, no accounts, no cloud. Open
 `beatforge.html` in a browser and everything works: an 18-genre step sequencer that exports
-MIDI, an in-browser audio→MIDI transcriber, and a WAV/MP3 renderer.
+Logic-ready MIDI, a per-lane one-shot kit for your own audio, deterministic humanize, an in-browser
+audio→MIDI transcriber, and a WAV/MP3 renderer.
 
 ```
 open beatforge.html          # the whole app: sequencer, transcriber, renderer
@@ -22,7 +23,7 @@ engine — the demo buttons work there too, because `demo/*.wav` is published al
 ### 🎛 Step sequencer → MIDI
 Program 8 lanes (kick, clap, snare, closed/open hat, 808 bass, melody, pad) on a 16th grid with
 swing and per-lane mute, hear it immediately through Web Audio synthesis (no samples required),
-then export.
+then export. Custom sounds are loaded locally into the browser and never uploaded.
 
 - **18 genres** in four families, each written as its real signature groove:
 
@@ -42,7 +43,26 @@ then export.
   that genre's root and mode (minor / dorian / major / phrygian).
 - **Export .MID** — Standard MIDI File, type 1, 480 PPQ. Drums go to channel 10 with General MIDI note
   numbers (kick 36, snare 38, clap 39, closed hat 42, open hat 46), so it lands on a Drum Kit Designer
-  track in Logic Pro and lines up immediately.
+  track in Logic Pro and lines up immediately. The conductor track is named `BEATFORGE`, includes 4/4
+  timing and the Mike 1ne / 7H Music Group attribution. **Logic / DAW MIDI** is the same interoperable
+  file with a Logic-friendly filename.
+
+### 🎚 Your own one-shots — Kit
+
+The **Kit — your own one-shots** panel gives every lane (`kick`, `clap`, `snare`, `hat`, `ohat`,
+`bass`, `pluck`, `pad`) an independent sample slot. Drop a WAV, MP3, M4A, OGG, AIFF or WebM onto a
+track row, a kit row, or the kit panel; on a phone or tablet use **Choose sound**. A loaded sample is
+additive: it replaces only that lane's live voice and never changes the grid. **▶** auditions it,
+**trim** removes silence below −52 dBFS, and gain, semitone tune, pitch-follow, one-shot/gated mode,
+reverse, and a small per-lane millisecond shift are available. Clear a slot to restore the synth;
+**Clear all** resets tracks only, while **Reset all samples** is separate.
+
+### 🫱 Deterministic humanize
+
+Humanize adds repeatable timing, velocity, length, pitch cents and expression variation. Its offsets
+come from an integer hash of `seed + lane + step`, so the same loop is the same take every time.
+Timing is capped at 45% of a step and cannot jump across a neighbour. **Write feel into MIDI**
+includes the timing, velocity and length changes in the export; leave it off for a strict grid.
 
 ### 🎧 Audio → MIDI
 Drop in a drum loop, bassline, melody or full beat. You get a multi-track MIDI file plus an on-screen
@@ -60,8 +80,9 @@ note timeline, which can be pushed straight into the sequencer to edit.
 The page uses the Python engine when it's reachable and silently falls back to its built-in one.
 
 ### 🎧 Render to audio
-**Render WAV** bounces the pattern with `OfflineAudioContext` — faster than real time, through the same
-voices and master chain you hear — as 44.1 kHz 16-bit stereo, normalised to −0.4 dBFS with a 2 s tail,
+**Render WAV** bounces the pattern, including loaded kit samples, with `OfflineAudioContext` — faster than
+real time, through the same voices and master chain you hear — as 44.1 kHz 16-bit stereo, normalised to
+−0.4 dBFS with a 2 s tail,
 ×1/×2/×4/×8 loops. **MP3** uses WebCodecs (`AudioEncoder`) where the browser ships it; if it isn't
 available the button says so instead of failing quietly, so WAV is the path that always works.
 
@@ -115,10 +136,12 @@ pip install -r requirements.txt   # optional: numpy + scipy, for the Python engi
 |---|---|
 | `tests/genre-rhythms.cjs` | 22 checks that each genre's signature rhythm is correct (four-on-the-floor, dembow placement, half-time snare, ghost notes, triplet kicks, swung 8ths) |
 | `tests/genre-export.cjs` | loads all 18 genres, range-checks every step and pitch, builds and validates a MIDI file for each |
+| `tests/midi-parity.cjs` | SMF type 1 / 480 PPQ, BEATFORGE conductor, copyright, 4/4, GM drums, 0x8n velocity-0x40 note-offs, and closed notes |
+| `tests/kit-humanize.cjs` | one-shot slot isolation/reset, sample routing, deterministic hashes, and the 45% timing cap |
 | `tests/wav-render.cjs` | offline render produces real PCM through the synth voices and master chain |
 | `tests/mp3-path.cjs` | WebCodecs plumbing: planar channel split, frame chunking, MPEG sync word |
 | `tests/browser-engine.cjs` | the in-browser analyser end to end (tempo, lanes, MIDI bytes) |
-| `tests/dom.cjs` | the real page in jsdom over real HTTP: genre buttons, grid editing (paint, accent, right-click erase, pitch drag), transport, export, WAV render, and audio→MIDI both with and without the Python server |
+| `tests/dom.cjs` | the real page in jsdom over real HTTP: kit rows/actions, humanize controls, preserved samples on Clear all, genre buttons, grid editing (paint, accent, right-click erase, pitch drag), transport, export, WAV render, and audio→MIDI both with and without the Python server |
 | `tests/server-engine.py` | the Python analyser on the committed demo audio: tempo, drum lanes, pitched lanes, SMF structure (note-on/note-off pairing, channel 10, tempo meta) and the HTTP API, including path-traversal attempts on `/demo/` |
 | `tests/check-inline.py` | `local-engine.js` is still byte-for-byte the analyser inlined in `beatforge.html` |
 | `tests/extract-app.py` | pulls the app's `<script>` block into `build/app.js` so Node can run it headless |
@@ -135,7 +158,7 @@ CI runs the suite twice on every push — once with jsdom + numpy installed, onc
 ## Repo layout
 
 ```
-beatforge.html           the app: UI, sequencer, synth, renderer, in-browser analyser
+beatforge.html           the app: UI, sequencer, synth/one-shot kit, humanize, renderer, in-browser analyser
 index.html               redirects the site root to beatforge.html (GitHub Pages)
 server.py                optional Python engine: HTTP server + transcription
 local-engine.js          source for the in-browser analyser (inlined into the HTML)
@@ -177,6 +200,7 @@ The app needs only a modern browser — `beatforge.html` has no build step and n
 | The real-page DOM test (`tests/dom.cjs`) | `npm install` (jsdom, a dev dependency) |
 | Everything else in the suite | node + python3 |
 
-## License
+## Ownership and license
 
-MIT — see [LICENSE](LICENSE).
+© 2026 Mike 1ne, Sound Engineer · 7H Music Group. This attribution is also embedded in exported MIDI
+conductor metadata. The source code remains MIT licensed — see [LICENSE](LICENSE).

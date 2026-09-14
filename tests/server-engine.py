@@ -269,6 +269,12 @@ def main():
     check("one conductor track plus one per lane", len(tracks) == len(r["tracks"]) + 1,
           f"{len(tracks)} tracks for {len(r['tracks'])} lanes")
     conductor = [e for e in tracks[0] if e[0] == "meta"]
+    names = [e[3].decode("ascii", "replace") for e in conductor if e[1] == 0x03]
+    copyrights = [e[3].decode("ascii", "replace") for e in conductor if e[1] == 0x02]
+    signatures = [e[3] for e in conductor if e[1] == 0x58]
+    check("conductor track is named BEATFORGE", names == ["BEATFORGE"], str(names))
+    check("conductor has Mike 1ne / 7H attribution", any("Mike 1ne" in x and "7H Music Group" in x for x in copyrights))
+    check("conductor has 4/4 time signature", signatures and signatures[0] == b"\x04\x02\x18\x08")
     tempos = [struct.unpack(">I", b"\x00" + e[3])[0] for e in conductor if e[1] == 0x51]
     check("conductor track carries the detected tempo",
           tempos and abs(60_000_000 / tempos[0] - r["bpm"]) < 0.01, f"{60_000_000 / tempos[0]:.2f} BPM")

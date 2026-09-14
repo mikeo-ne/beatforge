@@ -300,6 +300,17 @@ async function sequencerChecks(app) {
   check("boot preset is trap @140", app.$("#bpm").value === "140" && app.$("#bars").value === "2",
         `${app.$("#bpm").value} BPM, ${app.$("#bars").value} bars`);
   check("preset steps are painted on", cellsOn(app) > 20, `${cellsOn(app)} steps on`);
+  check("kit renders one independent row per lane", app.$$("#kitRows .kit-row").length === 8 &&
+        app.$$("#kitRows .smp").length === 8 && app.$$("#kitRows .mute").length === 8 &&
+        app.$$("#kitRows .clr").length === 8, `${app.$$("#kitRows .kit-row").length} kit rows`);
+  check("kit has a touch-friendly picker and bake/reset actions", !!app.$("#kitFile") && !!app.$("#kitChoose") &&
+        !!app.$("#kitBake") && !!app.$("#kitReset"));
+  check("humanize controls are wired into the page", !!app.$("#hzOn") && !!app.$("#hzMidi") &&
+        ["hzT", "hzV", "hzL", "hzP", "hzE", "hzReroll", "hzSnap"].every(id => !!app.$("#" + id)));
+  app.window.eval('state.samples.kick.name = "keep-me.wav"');
+  click(app, "#clear");
+  await sleep(60);
+  check("Clear all resets tracks but preserves kit slots", app.window.eval('state.samples.kick.name') === "keep-me.wav");
 
   console.log("\n-- genre presets --");
   const gbtns = app.$$("#genreBar .gbtn");
