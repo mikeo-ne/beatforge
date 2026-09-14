@@ -106,8 +106,26 @@
   .gbtn b{font-size:12.5px;font-weight:700}
   .gbtn i{font-style:normal;font-size:10px;color:var(--dim);letter-spacing:.03em}
   footer{margin-top:26px;color:#5b6484;font-size:11.5px;text-align:center;line-height:1.7}
+
+  /* ---------- kit / humanise ----------------------------------------- */
+  .kit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+  .kit-row{display:grid;grid-template-columns:minmax(92px,1fr) repeat(3,44px);gap:8px;align-items:center;
+    padding:10px;border:1px solid var(--line);border-radius:10px;background:#0c1020}
+  .kit-row.loaded{border-color:#1f6251;background:linear-gradient(135deg,rgba(76,224,179,.09),#0c1020)}
+  .kit-main{min-width:0}.kit-label{font-weight:700;font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kit-file{display:block;color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kit-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:11px}
+  .kit-actions .fld{min-width:105px;flex:1}.kit-actions button{min-height:38px}
+  .kit-slot{border:1px dashed #33405f;border-radius:8px;padding:6px;cursor:pointer;text-align:center;color:var(--dim);font-size:10px}
+  .kit-slot.hot,.kit-row.hot{border-color:var(--accent);background:#0c1622}
+  .kit-row input[type=range]{min-width:70px}.kit-ctrl{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:4px}.kit-ctrl input,.kit-ctrl select{width:auto;min-width:44px;padding:3px;font-size:10px}.kit-ctrl label{font-size:10px;color:var(--dim);text-transform:none;letter-spacing:0}.kit-wave{width:100%;height:28px;margin-top:5px;display:block;background:#0a0e1a;border-radius:5px}
+  .kit-help{margin:0 0 11px}.human-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  .human-grid .fld{background:#0c1020;border:1px solid var(--line);border-radius:9px;padding:8px}
+  .human-grid output{color:var(--accent);font-weight:700;float:right}
+  .check{display:inline-flex;align-items:center;gap:7px;color:var(--txt);font-size:12px;text-transform:none;letter-spacing:0}
+  .touch-target{min-height:42px;min-width:42px}
   .hidden{display:none}
-  @media(max-width:760px){ .trk{grid-template-columns:112px 1fr} .cell{min-width:12px} }
+  @media(max-width:760px){ .trk{grid-template-columns:112px 1fr} .cell{min-width:12px} .wrap{padding:14px 10px 60px} .panel{padding:12px} .tabs{overflow-x:auto}.tab{white-space:nowrap;padding:11px 12px}.kit-row{grid-template-columns:minmax(88px,1fr) repeat(3,40px)} button,.btn{min-height:42px} input[type=range]{min-height:30px} }
 </style>
 </head>
 <body>
@@ -141,7 +159,8 @@
         <label class="fld">Volume<input type="range" id="vol" min="0" max="1" step="0.01" value="0.85"></label>
       </div>
       <div class="row" style="margin-top:14px">
-        <button class="primary" id="export">⬇ Export .MID</button>
+        <button class="primary touch-target" id="export">⬇ Export .MID</button>
+        <button id="exportLogic" title="Standard MIDI with GM drums, ready to drag into Logic Pro">⌘ Logic / DAW MIDI</button>
         <button id="renderWav">🎧 Render WAV</button>
         <button id="renderMp3" title="uses WebCodecs — Chrome/Edge; falls back to WAV">🎵 MP3</button>
         <label class="fld" style="max-width:130px">Length<select id="wavLoops">
@@ -168,6 +187,41 @@
     <div class="panel">
       <h2>Tracks</h2>
       <div class="tracks" id="tracks"></div>
+    </div>
+
+    <div class="panel" id="kitPanel">
+      <h2>Kit — your own one-shots</h2>
+      <p class="note kit-help">Drop a WAV, MP3, M4A, OGG or AIFF onto a lane, a slot below, or this panel.
+        Samples are additive: the grid stays untouched, and clearing a slot restores that lane’s synth voice.
+        Choose a lane first when using the file picker.</p>
+      <div id="kitRows" class="kit-grid"></div>
+      <div class="kit-actions">
+        <button class="primary touch-target" id="kitChoose">＋ Choose sound</button>
+        <input type="file" id="kitFile" accept="audio/*,.wav,.mp3,.m4a,.ogg,.aiff,.webm" class="hidden">
+        <button class="touch-target" id="kitBake">◆ Bake selected synth</button>
+        <button class="touch-target" id="kitReset">Reset all samples</button>
+        <span id="kitNote" class="note" role="status">No custom sounds loaded.</span>
+      </div>
+    </div>
+
+    <div class="panel" id="humanizePanel">
+      <h2>Humanize performance</h2>
+      <p class="note kit-help">Give a programmed pattern a consistent feel. The seed makes the take deterministic,
+        so every loop and export stays the same. Timing never crosses a neighbour.</p>
+      <div class="row" style="margin-bottom:10px">
+        <label class="check"><input type="checkbox" id="hzOn"> Humanize playback</label>
+        <label class="check"><input type="checkbox" id="hzMidi"> Write feel into MIDI</label>
+        <button class="sm touch-target" id="hzReroll">↻ New take</button>
+        <button class="sm touch-target" id="hzSnap">⌖ Zero feel</button>
+        <span class="note" id="hzSeed"></span>
+      </div>
+      <div class="human-grid">
+        <label class="fld">Timing <output id="hzTv">0%</output><input type="range" id="hzT" min="0" max="1" step="0.01" value="0"></label>
+        <label class="fld">Velocity <output id="hzVv">0%</output><input type="range" id="hzV" min="0" max="1" step="0.01" value="0"></label>
+        <label class="fld">Length <output id="hzLv">0%</output><input type="range" id="hzL" min="0" max="1" step="0.01" value="0"></label>
+        <label class="fld">Pitch <output id="hzPv">0%</output><input type="range" id="hzP" min="0" max="1" step="0.01" value="0"></label>
+        <label class="fld">Expression <output id="hzEv">0%</output><input type="range" id="hzE" min="0" max="1" step="0.01" value="0"></label>
+      </div>
     </div>
 
     <div class="panel">
@@ -253,6 +307,15 @@
         numbers (kick 36, snare 38, clap 39, closed hat 42, open hat 46), so dragging the file onto a
         Drum Kit Designer track in Logic Pro lines up first time. Pitched lanes go to channels 1–3.</p>
 
+      <h3>Your own one-shots</h3>
+      <p class="note">Open <b>Kit — your own one-shots</b> below the tracks. Drop a sound on a lane or tap
+        <b>Choose sound</b> on a phone/tablet. The sample is additive and local: it replaces that lane's
+        synth voice without changing the pattern. Use trim, gain, tune, pitch-follow, one-shot/gated,
+        reverse and timing shift; clearing it returns the synth.</p>
+      <h3>Humanize</h3>
+      <p class="note">Humanize is a repeatable performance layer, not random jitter. Its integer hash keeps every
+        loop identical and timing is limited to 45% of one step. Turn on <b>Write feel into MIDI</b> to
+        preserve timing, velocity and length when you export to a DAW.</p>
       <h3>Genres</h3>
       <p class="note">18 styles in four families, each written as an authentic signature groove rather than
         a generic loop — house is four-on-the-floor with offbeat bass and open hats, reggaeton is the dembow
@@ -339,8 +402,9 @@
 
   <footer>
     BEATFORGE · sequencer and transcription run locally in your browser + a small numpy/scipy server ·
-    no accounts, no cloud, no samples<br>
-    Exports: MIDI (SMF type 1, 480 PPQ, GM drum map) + WAV (44.1 kHz 16-bit) + MP3 via WebCodecs —<br>all opening directly in Logic Pro, Ableton, FL Studio and Reaper.
+    no accounts, no cloud, no sample uploads<br>
+    Exports: MIDI (SMF type 1, 480 PPQ, GM drum map) + WAV (44.1 kHz 16-bit) + MP3 via WebCodecs —<br>ready for Logic Pro, Ableton, FL Studio and Reaper.<br>
+    © 2026 Mike 1ne, Sound Engineer · 7H Music Group
   </footer>
 </div>
 
@@ -375,8 +439,16 @@ const state = {
   playing:false, curStep:0,
   sel:"bass", octaveLow:36,
   tracks:{},            // id -> { steps: Map(stepIndex -> {pitch,vel}) }
+  samples:{},           // id -> one-shot slot; deliberately independent of tracks
+  humanize:{ on:false, timing:0, velocity:0, length:0, pitch:0, expression:0, seed:1731, midi:false },
   lastResult:null,      // last transcription
 };
+
+function newSlot(laneId){
+  return { laneId, buffer:null, name:"Synth voice", gain:1, tune:0, start:0, end:0, root:60,
+    followPitch:true, mode:"oneshot", reverse:false, mute:false, send:0.12, attack:0.003, release:0.04, shift:0, reversed:null };
+}
+TRACK_DEFS.forEach(t => state.samples[t.id] = newSlot(t.id));
 
 function totalSteps(){ return (state.bars || 2) * (state.grid || 16); }
 function stepDur(){ return (60 / (state.bpm || 140)) / ((state.grid || 16) / 4); }
@@ -432,12 +504,14 @@ function noiseBuffer(dur){
 function mtof(m){ return 440 * Math.pow(2, (m - 69) / 12); }
 
 /* --- voices ------------------------------------------------------------ */
-function playKick(t, v){
+function detuneNode(o, cents){
+  if (o && o.detune){ o.detune.value = cents || 0; }
+}
+function playKick(t, v, cents){
   const o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = "sine"; o.frequency.setValueAtTime(150, t);
+  detuneNode(o, cents); o.type = "sine"; o.frequency.setValueAtTime(150, t);
   o.frequency.exponentialRampToValueAtTime(46, t + 0.045);
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(v, t + 0.004);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.004);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.36);
   o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.4);
   const ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(0.012);
@@ -446,106 +520,289 @@ function playKick(t, v){
   ng.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
   ns.connect(hp); hp.connect(ng); ng.connect(master); ns.start(t);
 }
-function playSnare(t, v){
+function playSnare(t, v, cents){
   const ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(0.22);
   const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1900; bp.Q.value = 0.8;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(v * 0.72, t);
+  const g = ctx.createGain(); g.gain.setValueAtTime(v * 0.72, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
   ns.connect(bp); bp.connect(g); g.connect(master); g.connect(reverbBus); ns.start(t);
-  const o = ctx.createOscillator(), og = ctx.createGain();
+  const o = ctx.createOscillator(), og = ctx.createGain(); detuneNode(o, cents);
   o.type = "triangle"; o.frequency.value = 184;
   og.gain.setValueAtTime(v * 0.5, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
   o.connect(og); og.connect(master); o.start(t); o.stop(t + 0.12);
 }
-function playClap(t, v){
+function playClap(t, v, cents){
   for (let i = 0; i < 3; i++){
-    const tt = t + i * 0.009;
-    const ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(0.05);
+    const tt = t + i * 0.009, ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(0.05);
     const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1500; bp.Q.value = 1.1;
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(v * (0.85 - i * 0.14), tt);
+    const g = ctx.createGain(); g.gain.setValueAtTime(v * (0.85 - i * 0.14), tt);
     g.gain.exponentialRampToValueAtTime(0.001, tt + 0.045);
     ns.connect(bp); bp.connect(g); g.connect(master); g.connect(reverbBus); ns.start(tt);
   }
   const ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(0.22);
   const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2300; bp.Q.value = 0.7;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(v * 0.4, t + 0.024);
+  const g = ctx.createGain(); g.gain.setValueAtTime(v * 0.4, t + 0.024);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
   ns.connect(bp); bp.connect(g); g.connect(reverbBus); g.connect(master); ns.start(t + 0.024);
 }
-function playHat(t, v, open){
-  const dur = open ? 0.3 : 0.05;
-  const ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(dur + 0.03);
+function playHat(t, v, open, cents){
+  const dur = open ? 0.3 : 0.05, ns = ctx.createBufferSource(); ns.buffer = noiseBuffer(dur + 0.03);
   const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = open ? 7200 : 8200;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(0, t);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, t);
   g.gain.linearRampToValueAtTime(v * (open ? 0.34 : 0.42), t + 0.001);
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  ns.connect(hp); hp.connect(g); g.connect(master);
-  if (open) g.connect(reverbBus);
-  ns.start(t);
+  ns.connect(hp); hp.connect(g); g.connect(master); if (open) g.connect(reverbBus); ns.start(t);
 }
-function playBass(t, m, v, dur){
-  const f = mtof(m);
+function playBass(t, m, v, dur, cents){
+  const f = mtof(m) * Math.pow(2, (cents || 0) / 1200);
   const o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = "sine";
-  o.frequency.setValueAtTime(f * 1.5, t);
-  o.frequency.exponentialRampToValueAtTime(f, t + 0.05);
-  const len = Math.max(dur, 0.28);
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(v * 0.95, t + 0.006);
-  g.gain.exponentialRampToValueAtTime(0.001, t + len);
-  const ws = ctx.createWaveShaper();
-  const c = new Float32Array(256);
+  o.type = "sine"; o.frequency.setValueAtTime(f * 1.5, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.05);
+  const len = Math.max(dur, 0.28); g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(v * 0.95, t + 0.006); g.gain.exponentialRampToValueAtTime(0.001, t + len);
+  const ws = ctx.createWaveShaper(), c = new Float32Array(256);
   for (let i = 0; i < 256; i++){ const x = (i / 255) * 2 - 1; c[i] = Math.tanh(x * 2.2); }
-  ws.curve = c;
-  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2400;
-  o.connect(ws); ws.connect(lp); lp.connect(g); g.connect(master);
-  o.start(t); o.stop(t + len + 0.05);
+  ws.curve = c; const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2400;
+  o.connect(ws); ws.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(t + len + 0.05);
 }
-function playPluck(t, m, v, dur){
-  const f = mtof(m);
+function playPluck(t, m, v, dur, cents){
+  const f = mtof(m) * Math.pow(2, (cents || 0) / 1200);
   const parts = [[1, 1], [2, 0.4], [3, 0.22], [4.19, 0.13], [5.42, 0.08]];
   parts.forEach(([ratio, amp]) => {
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = "sine"; o.frequency.value = f * ratio;
-    const tau = 0.4 / (1 + (ratio - 1) * 0.55);
-    const len = Math.max(dur * 0.9, 0.25) + 0.2;
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(v * 0.5 * amp, t + 0.003);
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = "sine"; o.frequency.value = f * ratio;
+    detuneNode(o, cents); const tau = 0.4 / (1 + (ratio - 1) * 0.55), len = Math.max(dur * 0.9, 0.25) + 0.2;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * 0.5 * amp, t + 0.003);
     g.gain.exponentialRampToValueAtTime(0.001, t + Math.min(len, tau * 4));
-    o.connect(g); g.connect(master); g.connect(reverbBus);
-    o.start(t); o.stop(t + Math.min(len, tau * 4) + 0.05);
+    o.connect(g); g.connect(master); g.connect(reverbBus); o.start(t); o.stop(t + Math.min(len, tau * 4) + 0.05);
   });
 }
-function playPad(t, m, v, dur){
-  const f = mtof(m);
-  const g = ctx.createGain();
+function playPad(t, m, v, dur, cents){
+  const f = mtof(m) * Math.pow(2, (cents || 0) / 1200), g = ctx.createGain();
   const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1500;
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(v * 0.22, t + 0.35);
-  g.gain.setValueAtTime(v * 0.22, t + Math.max(0.4, dur - 0.25));
+  const attack = 0.22 + (state.humanize.on ? state.humanize.expression : 0) * 0.32;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * 0.22, t + attack);
+  g.gain.setValueAtTime(v * 0.22, t + Math.max(attack + 0.1, dur - 0.25));
   g.gain.linearRampToValueAtTime(0, t + Math.max(0.5, dur));
-  [-0.007, 0, 0.006].forEach(det => {
-    const o = ctx.createOscillator();
-    o.type = "sawtooth"; o.frequency.value = f * (1 + det);
-    o.connect(lp); o.start(t); o.stop(t + Math.max(0.6, dur) + 0.3);
-  });
+  [-0.007, 0, 0.006].forEach(det => { const o = ctx.createOscillator(); o.type = "sawtooth"; o.frequency.value = f * (1 + det); detuneNode(o, cents); o.connect(lp); o.start(t); o.stop(t + Math.max(0.6, dur) + 0.3); });
   lp.connect(g); g.connect(master); g.connect(reverbBus);
 }
-function playSound(sound, t, m, v, dur){
+function playSynth(sound, t, m, v, dur, cents){
   switch (sound){
-    case "kick":  return playKick(t, v);
-    case "snare": return playSnare(t, v);
-    case "clap":  return playClap(t, v);
-    case "hat":   return playHat(t, v, false);
-    case "ohat":  return playHat(t, v, true);
-    case "bass":  return playBass(t, m, v, dur);
-    case "pluck": return playPluck(t, m, v, dur);
-    case "pad":   return playPad(t, m, v, dur);
+    case "kick":  return playKick(t, v, cents);
+    case "snare": return playSnare(t, v, cents);
+    case "clap":  return playClap(t, v, cents);
+    case "hat":   return playHat(t, v, false, cents);
+    case "ohat":  return playHat(t, v, true, cents);
+    case "bass":  return playBass(t, m, v, dur, cents);
+    case "pluck": return playPluck(t, m, v, dur, cents);
+    case "pad":   return playPad(t, m, v, dur, cents);
   }
+}
+function reversedAudioBuffer(buffer){
+  const out = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+  for (let c = 0; c < buffer.numberOfChannels; c++){
+    const src = buffer.getChannelData(c), dst = out.getChannelData(c);
+    for (let i = 0; i < src.length; i++) dst[i] = src[src.length - 1 - i];
+  }
+  return out;
+}
+function playSample(laneId, t, m, v, dur, cents){
+  const s = slot(laneId);
+  if (!s || !s.buffer) return playSynth(laneId, t, m, v, dur, cents);
+  const source = ctx.createBufferSource();
+  const sourceBuffer = s.reverse ? (s.reversed || (s.reversed = reversedAudioBuffer(s.buffer))) : s.buffer;
+  source.buffer = sourceBuffer;
+  const originalDur = sourceBuffer.duration || (sourceBuffer.length / sourceBuffer.sampleRate) || 0.001;
+  let start = clamp(s.start || 0, 0, originalDur), end = clamp(s.end || originalDur, start + 0.001, originalDur);
+  if (s.reverse){ const oldStart = start; start = originalDur - end; end = originalDur - oldStart; }
+  const pitchRate = s.followPitch && laneId && TRACK_DEFS.find(td => td.id === laneId)?.type === "pitch" ? mtof(m) / mtof(s.root || 60) : 1;
+  if (source.playbackRate) source.playbackRate.value = pitchRate * Math.pow(2, (s.tune + (cents || 0)) / 1200);
+  else if (source.detune) source.detune.value = s.tune * 100 + (cents || 0);
+  const available = Math.max(0.001, end - start), requested = s.mode === "gated" ? Math.min(available, Math.max(0.01, dur)) : available;
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, t);
+  const peak = Math.max(0, v * (s.gain == null ? 1 : s.gain));
+  const attack = Math.min(Math.max(0.001, s.attack || 0.003), requested * 0.45);
+  g.gain.linearRampToValueAtTime(peak, t + attack);
+  g.gain.setValueAtTime(peak, t + Math.max(attack, requested - Math.max(0.005, s.release || 0.04)));
+  g.gain.linearRampToValueAtTime(0, t + requested);
+  source.connect(g); g.connect(master); if (s.send > 0) g.connect(reverbBus);
+  source.start(t, start, requested);
+  return source;
+}
+function playSound(sound, t, m, v, dur, cents){
+  if (!ctx) initAudio();
+  return slot(sound)?.buffer && !slot(sound).mute ? playSample(sound, t, m, v, dur, cents) : playSynth(sound, t, m, v, dur, cents);
+}
+
+
+/* ======================================================================
+   performance feel + per-lane one-shot kit
+   ====================================================================== */
+function hrand(seed, lane, step){
+  // Integer-only hash: same seed/lane/step means the same take on every loop.
+  let h = (seed | 0) ^ ((step + 1) * 0x45d9f3b) ^ 0x9e3779b9;
+  for (let i = 0; i < String(lane).length; i++) h = Math.imul(h ^ String(lane).charCodeAt(i), 0x27d4eb2d);
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b); h ^= h >>> 13;
+  return (h >>> 0) / 4294967295;
+}
+function humanizeFor(laneId, step){
+  const hz = state.humanize;
+  if (!hz.on) return { t:0, v:1, len:1, cents:0 };
+  const r = n => hrand(hz.seed + n * 1013, laneId, step);
+  // The 0.45 cap guarantees a hit stays on its own side of the neighbouring step.
+  return {
+    t: (r(1) * 2 - 1) * stepDur() * 0.45 * hz.timing,
+    v: clamp(1 + (r(2) * 2 - 1) * 0.28 * hz.velocity, 0.35, 1.2),
+    len: clamp(1 + (r(3) * 2 - 1) * 0.45 * hz.length, 0.2, 1.8),
+    cents: (r(4) * 2 - 1) * 35 * hz.pitch,
+  };
+}
+function expression(laneId, h){
+  const amount = state.humanize.on ? state.humanize.expression : 0;
+  // A softer pad attack and shorter percussive tails make expression audible without
+  // changing the written pattern. The returned values are deterministic too.
+  if (laneId === "pad") return { v: 1 - amount * 0.18, len: 1 + amount * 0.18 };
+  if (["kick", "snare", "clap", "hat", "ohat"].includes(laneId)) return { v: 1 - amount * 0.12, len: 1 - amount * 0.08 };
+  return { v: 1, len: 1 };
+}
+
+const KIT_PARAMS = TRACK_DEFS.map(td => ({ id:td.id, name:td.name, color:td.color }));
+function slot(laneId){ return state.samples[laneId] || (state.samples[laneId] = newSlot(laneId)); }
+function sampleDuration(buffer){
+  return buffer && (buffer.duration || (buffer.length && buffer.sampleRate ? buffer.length / buffer.sampleRate : 0)) || 0;
+}
+function samplePeaks(buffer, width){
+  width = Math.max(1, width || 96); const out = [];
+  if (!buffer || !buffer.length) return out;
+  const data = buffer.getChannelData(0), stride = Math.max(1, Math.floor(data.length / width));
+  for (let x = 0; x < width; x++){
+    const a = x * stride, b = Math.min(data.length, a + stride); let lo = 1, hi = -1;
+    for (let i = a; i < b; i++){ lo = Math.min(lo, data[i]); hi = Math.max(hi, data[i]); }
+    out.push({ min:lo === 1 ? 0 : lo, max:hi === -1 ? 0 : hi });
+  }
+  return out;
+}
+function drawSlotWave(laneId){
+  const c = $(`.kit-wave[data-lane="${laneId}"]`), s = slot(laneId);
+  if (!c || !c.getContext || !s.buffer) return;
+  const g = c.getContext("2d"); if (!g) return;
+  const w = c.width = Math.max(120, c.clientWidth || 240), h = c.height = 28;
+  g.clearRect(0, 0, w, h); g.fillStyle = "#4ce0b3";
+  samplePeaks(s.buffer, Math.floor(w / 3)).forEach((p, i, a) => {
+    const x = i / a.length * w, y = h / 2, scale = h * 0.43;
+    g.fillRect(x, y + p.min * scale, Math.max(1, w / a.length - 1), Math.max(1, (p.max - p.min) * scale));
+  });
+}
+function paintKit(){
+  KIT_PARAMS.forEach(k => {
+    const s = slot(k.id), row = $(`.kit-row[data-lane="${k.id}"]`);
+    if (!row) return;
+    row.classList.toggle("loaded", !!s.buffer);
+    row.classList.toggle("muted", !!s.mute);
+    const mute = row.querySelector(".mute"); if (mute) mute.textContent = s.mute ? "○" : "M";
+    const name = row.querySelector(".kit-file"); if (name) name.textContent = s.buffer ? s.name : "Synth voice · drop audio here";
+    const gain = row.querySelector(".kit-gain"), tune = row.querySelector(".kit-tune"), shift = row.querySelector(".kit-shift");
+    if (gain) gain.value = s.gain;
+    if (tune) tune.value = s.tune;
+    if (shift) shift.value = s.shift;
+    drawSlotWave(k.id);
+  });
+  const loaded = KIT_PARAMS.filter(k => slot(k.id).buffer).length;
+  const note = $("#kitNote"); if (note) note.textContent = loaded ? `${loaded} custom sound${loaded === 1 ? "" : "s"} loaded · selected lane: ${TRACK_DEFS.find(t => t.id === state.sel)?.name || state.sel}` : "No custom sounds loaded.";
+}
+function buildKit(){
+  const host = $("#kitRows"); if (!host) return; host.innerHTML = "";
+  KIT_PARAMS.forEach(k => {
+    const row = document.createElement("div"); row.className = "kit-row kit-slot"; row.dataset.lane = k.id;
+    const main = document.createElement("div"); main.className = "kit-main";
+    const label = document.createElement("span"); label.className = "kit-label"; label.textContent = k.name;
+    const file = document.createElement("span"); file.className = "kit-file";
+    const wave = document.createElement("canvas"); wave.className = "kit-wave"; wave.dataset.lane = k.id; wave.setAttribute("aria-label", k.name + " waveform");
+    const gain = document.createElement("input"); gain.className = "kit-gain"; gain.type = "range"; gain.min = 0; gain.max = 2; gain.step = 0.01; gain.title = "sample gain";
+    gain.oninput = () => { slot(k.id).gain = parseFloat(gain.value); };
+    const ctrl = document.createElement("div"); ctrl.className = "kit-ctrl";
+    const tune = document.createElement("input"); tune.className = "kit-tune"; tune.type = "number"; tune.min = -24; tune.max = 24; tune.step = 1; tune.title = "tune in semitones"; tune.setAttribute("aria-label", "tune semitones"); tune.oninput = () => { slot(k.id).tune = clamp(parseFloat(tune.value) || 0, -24, 24); slot(k.id).reversed = null; };
+    const mode = document.createElement("select"); mode.className = "kit-mode"; mode.title = "play mode"; mode.innerHTML = '<option value="oneshot">one shot</option><option value="gated">gated</option>'; mode.onchange = () => { slot(k.id).mode = mode.value; };
+    const shift = document.createElement("input"); shift.className = "kit-shift"; shift.type = "number"; shift.min = -100; shift.max = 100; shift.step = 1; shift.title = "lane timing shift in ms"; shift.placeholder = "ms"; shift.setAttribute("aria-label", "timing shift milliseconds"); shift.oninput = () => { slot(k.id).shift = clamp(parseFloat(shift.value) || 0, -100, 100); };
+    const trim = document.createElement("button"); trim.className = "trim sm"; trim.textContent = "trim"; trim.title = "auto-trim below -52 dBFS"; trim.onclick = e => { e.stopPropagation(); trimRange(k.id); };
+    const follow = document.createElement("label"); follow.innerHTML = '<input class="kit-follow" type="checkbox" checked> pitch'; follow.querySelector("input").onchange = e => { slot(k.id).followPitch = e.target.checked; };
+    ctrl.append(tune, mode, shift, follow, trim); main.append(label, file, wave, gain, ctrl);
+    const smp = document.createElement("button"); smp.className = "smp touch-target"; smp.textContent = "▶"; smp.title = "audition"; smp.onclick = e => { e.stopPropagation(); audition(k.id); };
+    const mute = document.createElement("button"); mute.className = "mute touch-target"; mute.textContent = "M"; mute.title = "mute this sample (synth returns)"; mute.onclick = e => { e.stopPropagation(); slot(k.id).mute = !slot(k.id).mute; paintKit(); };
+    const clr = document.createElement("button"); clr.className = "clr touch-target"; clr.textContent = "×"; clr.title = "clear sample / restore synth"; clr.onclick = e => { e.stopPropagation(); clearSample(k.id); };
+    row.append(main, smp, mute, clr); host.appendChild(row);
+    wireDropTarget(row, k.id);
+    row.onclick = () => { state.sel = k.id; paintKit(); };
+  });
+  paintKit();
+}
+function setSample(laneId, buffer, name){
+  if (!buffer) return clearSample(laneId);
+  const s = slot(laneId); s.buffer = buffer; s.name = name || "Custom one-shot";
+  s.start = 0; s.end = sampleDuration(buffer); s.reversed = null;
+  paintKit();
+  const td = TRACK_DEFS.find(t => t.id === laneId); if (td) state.sel = laneId;
+  return s;
+}
+function clearSample(laneId){
+  state.samples[laneId] = newSlot(laneId); paintKit();
+}
+function resetSamples(){ TRACK_DEFS.forEach(td => state.samples[td.id] = newSlot(td.id)); paintKit(); }
+async function decodeSampleFile(file){
+  if (!file || !file.arrayBuffer) throw new Error("That file could not be read.");
+  if (!ctx) initAudio();
+  return ctx.decodeAudioData((await file.arrayBuffer()).slice(0));
+}
+async function loadSampleFile(file, laneId){
+  laneId = laneId || state.sel;
+  const good = file && ((file.type || "").startsWith("audio/") || /\.(wav|mp3|m4a|ogg|aiff|aif|webm)$/i.test(file.name || ""));
+  if (!good) { $("#kitNote").textContent = "Choose an audio file (WAV, MP3, M4A, OGG or AIFF)."; return null; }
+  $("#kitNote").textContent = `Loading ${file.name || "sound"}…`;
+  try {
+    const b = await decodeSampleFile(file); setSample(laneId, b, file.name || "Custom one-shot");
+    $("#kitNote").textContent = `${file.name || "Sound"} loaded on ${TRACK_DEFS.find(t => t.id === laneId)?.name || laneId}.`;
+    return b;
+  } catch (err){ $("#kitNote").textContent = "Could not decode that sound in this browser. Try WAV or MP3."; return null; }
+}
+function trimRange(laneId){
+  const s = slot(laneId); if (!s.buffer) return null;
+  const b = s.buffer, d = b.getChannelData(0), threshold = Math.pow(10, -52 / 20);
+  let first = d.length, last = -1;
+  for (let i = 0; i < d.length; i++) if (Math.abs(d[i]) > threshold){ first = Math.min(first, i); last = i; }
+  if (last < first){ s.start = 0; s.end = sampleDuration(b); return s; }
+  s.start = first / b.sampleRate; s.end = (last + 1) / b.sampleRate; paintKit(); return s;
+}
+async function bakeVoice(laneId){
+  laneId = laneId || state.sel; const td = TRACK_DEFS.find(t => t.id === laneId);
+  if (!td || typeof OfflineAudioContext === "undefined"){ $("#kitNote").textContent = "This browser cannot bake a synth voice."; return null; }
+  const old = slot(laneId).buffer, oldCtx = {ctx, master, reverbBus, comp};
+  try {
+    const sr = 44100, seconds = Math.max(0.8, td.type === "pitch" ? stepDur() * 2 : 0.45), off = new OfflineAudioContext(1, Math.ceil(sr * seconds), sr);
+    ctx = off; master = off.createGain(); reverbBus = off.createGain(); comp = null;
+    slot(laneId).buffer = null; playSynth(td.sound, 0.01, td.type === "pitch" ? (laneId === "bass" ? 45 : 69) : 0, 0.9, seconds * 0.8, 0);
+    const rendered = await off.startRendering(); setSample(laneId, rendered, `${td.name} baked synth.wav`); trimRange(laneId); return rendered;
+  } catch (err){ $("#kitNote").textContent = "Could not bake this voice in the current browser."; return null; }
+  finally { ctx = oldCtx.ctx; master = oldCtx.master; reverbBus = oldCtx.reverbBus; comp = oldCtx.comp; if (!slot(laneId).buffer) slot(laneId).buffer = old; }
+}
+function audition(laneId){
+  initAudio(); if (ctx.state === "suspended") ctx.resume();
+  const td = TRACK_DEFS.find(t => t.id === laneId), m = td && td.type === "pitch" ? (laneId === "bass" ? 45 : 69) : 0;
+  playSound(td ? td.sound : laneId, ctx.currentTime + 0.03, m, 0.9, stepDur(), 0);
+}
+function wireDropTarget(target, laneId){
+  if (!target || target.dataset.dropWired === "1") return; target.dataset.dropWired = "1";
+  ["dragenter", "dragover"].forEach(ev => target.addEventListener(ev, e => { e.preventDefault(); target.classList.add("hot"); }));
+  ["dragleave", "drop"].forEach(ev => target.addEventListener(ev, e => { e.preventDefault(); target.classList.remove("hot"); }));
+  target.addEventListener("drop", e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) loadSampleFile(f, laneId); });
+}
+function wireKit(){
+  const file = $("#kitFile"), choose = $("#kitChoose"), panel = $("#kitPanel");
+  if (!file || !choose || !panel) return;
+  choose.onclick = () => file.click();
+  file.onchange = () => { if (file.files[0]) loadSampleFile(file.files[0], state.sel); file.value = ""; };
+  wireDropTarget(panel, null);
+  panel.addEventListener("drop", e => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f && !e.target.closest(".kit-row")) loadSampleFile(f, state.sel); });
+  $("#kitReset").onclick = resetSamples;
+  $("#kitBake").onclick = () => bakeVoice(state.sel);
 }
 
 /* ======================================================================
@@ -560,12 +817,16 @@ function scheduleStep(i, t){
     if (!tr || tr.mute) return;
     const n = tr.steps.get(i);
     if (!n) return;
-    const dur = (td.type === "pitch") ? stepDur() * (n.len || 1) : 0.2;
-    list.push([td.sound, n.pitch, n.vel, dur]);
+    const h = humanizeFor(td.id, i);
+    const ex = expression(td.id, h);
+    const d = (td.type === "pitch") ? stepDur() * (n.len || 1) * h.len * ex.len : 0.2 * h.len * ex.len;
+    const bias = (slot(td.id)?.shift || 0) / 1000;
+    list.push([td.sound, n.pitch, clamp(n.vel * h.v * ex.v, 0.02, 1), d, h.t + bias, h.cents]);
   });
-  // swing: push odd 16th steps later
+  // swing: push odd 16th steps later. Humanize timing is capped separately in humanizeFor.
   const swingOffset = (i % 2 === 1) ? state.swing * stepDur() * 0.5 : 0;
-  list.forEach(([s, p, v, d]) => playSound(s, t + swingOffset, p, v, d));
+  list.forEach(([sound, pitch, velocity, dur, offset, cents]) =>
+    playSound(sound, t + swingOffset + offset, pitch, velocity, dur, cents));
 }
 function tick(){
   const dur = stepDur();
@@ -606,7 +867,7 @@ function buildTracks(){
     const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = td.color;
     const name = document.createElement("span"); name.className = "tname"; name.textContent = td.name;
     name.onclick = () => { state.sel = td.id; refreshAll(); };
-    const mute = document.createElement("button"); mute.className = "ico"; mute.textContent = "M";
+    const mute = document.createElement("button"); mute.className = "ico mute"; mute.textContent = "M";
     mute.title = "mute";
     mute.onclick = () => { state.tracks[td.id].mute = !state.tracks[td.id].mute; refreshAll(); };
     const clr = document.createElement("button"); clr.className = "ico"; clr.textContent = "×";
@@ -633,6 +894,7 @@ function buildTracks(){
     }
     row.appendChild(bars);
     host.appendChild(row);
+    wireDropTarget(row, td.id);
   });
   paintAll();
   buildPianoRoll();
@@ -818,29 +1080,46 @@ function u32(n){ return [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n 
 function u16(n){ return [(n >> 8) & 255, n & 255]; }
 
 /** tracks: [{name, channel, notes:[{step, pitch, len, vel}] , gridStepsPerBar}] */
+function metaText(type, text){
+  const b = str(text); return [0x00, 0xFF, type, Math.min(127, b.length), ...b.slice(0, 127)];
+}
 function buildSMF(tracks, bpm, ppq, grid){
   const chunks = [];
-  // conductor
-  let t0 = [].concat([0x00, 0xFF, 0x03, 4], str("BEAT"), [0x00, 0xFF, 0x51, 0x03],
-    u32(Math.round(60000000 / bpm)).slice(1), [0x00, 0xFF, 0x58, 0x04, 4, 2, 24, 8], [0x00, 0xFF, 0x2F, 0x00]);
+  // Conductor track: Logic and other DAWs use this for project tempo/transport.
+  let t0 = [].concat(metaText(0x03, "BEATFORGE"), metaText(0x02, "Copyright (c) Mike 1ne, Sound Engineer / 7H Music Group"),
+    [0x00, 0xFF, 0x51, 0x03], u32(Math.round(60000000 / bpm)).slice(1),
+    [0x00, 0xFF, 0x58, 0x04, 4, 2, 24, 8], [0x00, 0xFF, 0x2F, 0x00]);
   chunks.push(t0);
 
   tracks.forEach(tr => {
-    const ticksPerStep = (ppq * 4) / grid;         // grid = steps per bar (16 => 16th notes)
+    const ticksPerStep = (ppq * 4) / grid;
     const evs = [];
-    tr.notes.forEach(n => {
-      const start = n.step * ticksPerStep;
-      const len = Math.max(8, (n.len || 1) * ticksPerStep * 0.92);
-      evs.push([start, 0, n.pitch, Math.round((n.vel || 0.9) * 127), tr.channel]);
-      evs.push([start + len, 1, n.pitch, 0, tr.channel]);
+    const prepared = tr.notes.map(n => ({ n, start:Math.max(0, Math.round(n.step * ticksPerStep)),
+      want:Math.max(1, Math.round((n.len || 1) * ticksPerStep * 0.92)) }))
+      .sort((a, b) => a.start - b.start);
+    prepared.forEach((x, ix) => {
+      const n = x.n;
+      if (prepared.slice(0, ix).some(y => y.start === x.start && y.n.pitch === n.pitch)) return;
+      const next = prepared.slice(ix + 1).find(y => y.start > x.start && y.n.pitch === n.pitch);
+      // Never let two notes of the same MIDI key overlap: DAWs then see one clean
+      // note-off for every note-on, even with exported humanized lengths.
+      const gap = next ? next.start - x.start : Infinity;
+      if (gap === 0) return;
+      const len = Math.max(1, Math.min(x.want, Number.isFinite(gap) ? gap : x.want));
+      evs.push([x.start, 0, n.pitch, Math.round((n.vel || 0.9) * 127), tr.channel]);
+      evs.push([x.start + len, 1, n.pitch, 0, tr.channel]);
     });
-    evs.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-    let out = [].concat([0x00, 0xFF, 0x03, tr.name.length & 0x7F], str(tr.name));
+    // Close a note before opening another note at the same tick. This is important
+    // for repeated drum hits and makes every note pair unambiguous in Logic.
+    evs.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+    const name = str(tr.name || "BEATFORGE");
+    let out = [].concat([0x00, 0xFF, 0x03, Math.min(127, name.length)], name.slice(0, 127));
     let last = 0;
     evs.forEach(([t, off, pitch, vel, ch]) => {
-      out = out.concat(vlq(Math.max(0, t - last)));
+      const tick = Math.max(last, t);
+      out = out.concat(vlq(tick - last));
       out = out.concat(off ? [0x80 | ch, pitch, 0x40] : [0x90 | ch, pitch, clamp(vel, 1, 127)]);
-      last = t;
+      last = tick;
     });
     out = out.concat([0x00, 0xFF, 0x2F, 0x00]);
     chunks.push(out);
@@ -856,28 +1135,29 @@ function download(blob, filename){
   document.body.appendChild(a); a.click(); a.remove();
 }
 
-function exportSequencer(quiet){
+function humanizedMidiNote(td, n, step){
+  const use = state.humanize.midi && state.humanize.on;
+  const h = use ? humanizeFor(td.id, step) : {t:0, v:1, len:1, cents:0};
+  return { step: Math.max(0, step + h.t / stepDur()), pitch: td.type === "drum" ? GM_NOTE[td.sound] : n.pitch,
+    len: Math.max(0.2, (n.len || 1) * h.len), vel: clamp((n.vel || 0.9) * h.v, 0.02, 1) };
+}
+
+function exportSequencer(quiet, filename){
   const tracks = [];
   TRACK_DEFS.forEach(td => {
     const tr = state.tracks[td.id];
     if (!tr.steps.size) return;
     const notes = [];
-    tr.steps.forEach((n, step) => {
-      notes.push({
-        step,
-        pitch: td.type === "drum" ? GM_NOTE[td.sound] : n.pitch,
-        len: 1,
-        vel: n.vel,
-      });
-    });
+    tr.steps.forEach((n, step) => notes.push(humanizedMidiNote(td, n, step)));
     tracks.push({ name: td.name, channel: td.type === "drum" ? 9 : (2 + tracks.length), notes });
   });
   if (!tracks.length){ alert("Nothing to export — add some steps first."); return null; }
   const smf = buildSMF(tracks, state.bpm, 480, state.grid);
-  if (!quiet) download(new Blob([smf], { type: "audio/midi" }), `beatforge-${state.bpm}bpm.mid`);
+  if (!quiet) download(new Blob([smf], { type: "audio/midi" }), filename || `beatforge-${state.bpm}bpm.mid`);
   return smf;
 }
 $("#export").onclick = () => exportSequencer(false);
+$("#exportLogic").onclick = () => exportSequencer(false, `beatforge-logic-pro-${state.bpm}bpm.mid`);
 
 /* ======================================================================
    6b. offline render -> WAV
@@ -2345,6 +2625,29 @@ $("#sens").oninput = e => { $("#sv").textContent = Math.round(e.target.value * 1
 $("#halfBtn").onclick = () => { const v = parseFloat($("#a2mBpm").value); if (v > 0) $("#a2mBpm").value = (v / 2).toFixed(1); };
 $("#dblBtn").onclick = () => { const v = parseFloat($("#a2mBpm").value); if (v > 0) $("#a2mBpm").value = (v * 2).toFixed(1); };
 
+function refreshHumanizeUI(){
+  const h = state.humanize;
+  [["hzT", "hzTv", "timing"], ["hzV", "hzVv", "velocity"], ["hzL", "hzLv", "length"],
+   ["hzP", "hzPv", "pitch"], ["hzE", "hzEv", "expression"]].forEach(([id, out, key]) => {
+    const input = $("#" + id), label = $("#" + out);
+    if (input) input.value = h[key]; if (label) label.textContent = Math.round(h[key] * 100) + "%";
+  });
+  if ($("#hzOn")) $("#hzOn").checked = h.on;
+  if ($("#hzMidi")) $("#hzMidi").checked = h.midi;
+  if ($("#hzSeed")) $("#hzSeed").textContent = "seed " + h.seed;
+}
+function wireHumanize(){
+  const on = $("#hzOn"), midi = $("#hzMidi"); if (!on) return;
+  on.onchange = () => { state.humanize.on = on.checked; refreshHumanizeUI(); };
+  midi.onchange = () => { state.humanize.midi = midi.checked; refreshHumanizeUI(); };
+  [["hzT", "timing"], ["hzV", "velocity"], ["hzL", "length"], ["hzP", "pitch"], ["hzE", "expression"]].forEach(([id, key]) => {
+    $("#" + id).oninput = e => { state.humanize[key] = clamp(parseFloat(e.target.value) || 0, 0, 1); refreshHumanizeUI(); };
+  });
+  $("#hzReroll").onclick = () => { state.humanize.seed = (Math.floor(Math.random() * 0x7fffffff) || 1); refreshHumanizeUI(); };
+  $("#hzSnap").onclick = () => { state.humanize.timing = state.humanize.velocity = state.humanize.length = state.humanize.pitch = state.humanize.expression = 0; refreshHumanizeUI(); };
+  refreshHumanizeUI();
+}
+
 $$(".tab").forEach(b => b.onclick = () => {
   $$(".tab").forEach(x => x.classList.toggle("on", x === b));
   ["seq", "a2m", "help"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
@@ -2367,10 +2670,14 @@ document.addEventListener("keydown", e => {
 /* boot */
 resetTracks();
 buildTracks();
+buildKit();
+wireKit();
+wireHumanize();
 wireGrid();
 wireDrop();
 wireDemos();
 loadPreset("trap");
+refreshHumanizeUI();
 </script>
 </body>
 </html>
